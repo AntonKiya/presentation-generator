@@ -1,0 +1,50 @@
+{
+  "id": "data_focus",
+  "intent": "Показать данные, график, таблицу и короткий вывод",
+  "layout_container_tree": {
+    "type": "stack",
+    "gap": 18,
+    "children": [
+      {
+        "type": "stack",
+        "slot": "title",
+        "accepts": ["title", "subtitle"],
+        "required": true,
+        "children": []
+      },
+      {
+        "type": "row",
+        "gap": 24,
+        "children": [
+          {
+            "type": "stack",
+            "slot": "data",
+            "width": 0.65,
+            "accepts": ["chart", "table"],
+            "required": true,
+            "children": []
+          },
+          {
+            "type": "stack",
+            "slot": "comment",
+            "width": 0.35,
+            "accepts": ["text", "bullets"],
+            "required": false,
+            "children": []
+          }
+        ]
+      }
+    ]
+  },
+  "limits": {
+    "title_max_lines": 2,
+    "text_max_lines": 4,
+    "bullets_max_items": 3,
+    "table_max_rows": 6,
+    "chart_max_series": 4
+  },
+  "fallbacks": {
+    "if_no_chart_data": "use_table",
+    "if_no_structured_data": "use_content"
+  }
+}

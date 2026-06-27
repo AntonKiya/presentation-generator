@@ -1,0 +1,51 @@
+{
+  "id": "split_content",
+  "intent": "Слайд с двумя смысловыми зонами",
+  "layout_container_tree": {
+    "type": "stack",
+    "gap": 18,
+    "children": [
+      {
+        "type": "stack",
+        "slot": "title",
+        "accepts": ["title", "subtitle"],
+        "required": true,
+        "children": []
+      },
+      {
+        "type": "row",
+        "gap": 24,
+        "children": [
+          {
+            "type": "stack",
+            "slot": "body",
+            "width": 0.5,
+            "accepts": ["text", "bullets", "cards", "table", "chart", "image"],
+            "required": true,
+            "children": []
+          },
+          {
+            "type": "stack",
+            "slot": "visual",
+            "width": 0.5,
+            "accepts": ["image", "chart", "table", "cards", "text", "bullets"],
+            "required": false,
+            "children": []
+          }
+        ]
+      }
+    ]
+  },
+  "limits": {
+    "title_max_lines": 2,
+    "text_max_lines": 5,
+    "bullets_max_items": 4,
+    "cards_min_items": 2,
+    "cards_max_items": 4,
+    "table_max_rows": 5
+  },
+  "fallbacks": {
+    "if_no_visual": "use_content",
+    "if_no_data_for_chart": "use_table_or_bullets"
+  }
+}

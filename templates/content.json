@@ -1,0 +1,36 @@
+{
+  "id": "content",
+  "intent": "Обычный содержательный слайд с текстом, тезисами или карточками",
+  "layout_container_tree": {
+    "type": "stack",
+    "gap": 18,
+    "children": [
+      {
+        "type": "stack",
+        "slot": "title",
+        "accepts": ["title", "subtitle"],
+        "required": true,
+        "children": []
+      },
+      {
+        "type": "stack",
+        "slot": "body",
+        "accepts": ["text", "bullets", "cards"],
+        "required": true,
+        "children": []
+      }
+    ]
+  },
+  "limits": {
+    "title_max_lines": 2,
+    "subtitle_max_lines": 2,
+    "text_max_lines": 7,
+    "bullets_max_items": 5,
+    "cards_min_items": 2,
+    "cards_max_items": 4
+  },
+  "fallbacks": {
+    "if_too_much_text": "use_bullets",
+    "if_many_parallel_points": "use_cards"
+  }
+}

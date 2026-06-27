@@ -1,0 +1,40 @@
+{
+  "id": "grid_content",
+  "intent": "Показать набор однотипных блоков или визуальных элементов",
+  "layout_container_tree": {
+    "type": "stack",
+    "gap": 18,
+    "children": [
+      {
+        "type": "stack",
+        "slot": "title",
+        "accepts": ["title", "subtitle"],
+        "required": true,
+        "children": []
+      },
+      {
+        "type": "grid",
+        "slot": "body",
+        "columns": "auto",
+        "gap": 16,
+        "accepts": ["cards", "image"],
+        "required": true,
+        "children": []
+      }
+    ]
+  },
+  "limits": {
+    "title_max_lines": 2,
+    "cards_min_items": 2,
+    "cards_max_items": 6,
+    "images_min_items": 2,
+    "images_max_items": 6
+  },
+  "dynamic_rules": {
+    "columns": "auto_by_items_count"
+  },
+  "fallbacks": {
+    "if_one_item": "use_content",
+    "if_too_many_items": "split_into_multiple_slides"
+  }
+}
