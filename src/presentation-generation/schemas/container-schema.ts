@@ -129,7 +129,7 @@ export const GridContainerSchema: z.ZodType<any> = z.lazy(() =>
 );
 
 export const LayoutContainerSchema: z.ZodType<LayoutContainer> = z.lazy(() =>
-  z.discriminatedUnion("type", [
+  z.union([
     StackContainerSchema,
     RowContainerSchema,
     GridContainerSchema,

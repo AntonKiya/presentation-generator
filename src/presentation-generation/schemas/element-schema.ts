@@ -176,7 +176,7 @@ export const ChartElementSchema = z.discriminatedUnion("chart_type", [
  */
 
 export const ElementSchema = z
-  .discriminatedUnion("type", [
+  .union([
     TitleElementSchema,
     SubtitleElementSchema,
     TextElementSchema,

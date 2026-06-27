@@ -7,13 +7,15 @@ import {
   type Templates,
 } from "../schemas/template-schema";
 
+const DEFAULT_TEMPLATES_DIR = path.resolve(__dirname, "../templates");
+
 export type TemplateRegistry = {
   templates: Templates;
   byId: ReadonlyMap<string, Template>;
 };
 
 export async function loadTemplates(
-  templatesDir = path.resolve(process.cwd(), "templates"),
+  templatesDir = DEFAULT_TEMPLATES_DIR,
 ): Promise<TemplateRegistry> {
   const fileNames = await readdir(templatesDir);
   const templateFiles = fileNames

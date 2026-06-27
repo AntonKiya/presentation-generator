@@ -1,1 +1,7 @@
+node_modules
+dist
 .idea
+.env
+.env.local
+npm-debug.log
+yarn-error.log
