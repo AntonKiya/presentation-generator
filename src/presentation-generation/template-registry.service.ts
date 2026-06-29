@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from "@nestjs/common";
+import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import {
   getAvailableTemplatesForPrompt,
   getTemplateById,
@@ -9,10 +9,27 @@ import type { Template, Templates } from "./schemas/template-schema";
 
 @Injectable()
 export class TemplateRegistryService implements OnModuleInit {
+  private readonly logger = new Logger(TemplateRegistryService.name);
   private registry?: TemplateRegistry;
 
   async onModuleInit(): Promise<void> {
-    this.registry = await loadTemplates();
+    const startedAt = Date.now();
+
+    this.logger.log("Loading presentation templates");
+
+    try {
+      this.registry = await loadTemplates();
+      this.logger.log(
+        `Templates loaded count=${this.registry.templates.length} ids=${this.registry.templates
+          .map((template) => template.id)
+          .join(",")} durationMs=${Date.now() - startedAt}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Template loading failed durationMs=${Date.now() - startedAt} error=${formatError(error)}`,
+      );
+      throw error;
+    }
   }
 
   getRegistry(): TemplateRegistry {
@@ -30,4 +47,8 @@ export class TemplateRegistryService implements OnModuleInit {
   getTemplateById(templateId: string): Template | undefined {
     return getTemplateById(this.getRegistry(), templateId);
   }
+}
+
+function formatError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
