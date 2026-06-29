@@ -2,7 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import {
   validatePerSlideGenerationResult,
   type ValidationResult,
-} from "./generation/validation";
+} from "./validation";
 import type { PerSlideGenerationResult } from "./schemas/generation-schema";
 import { TemplateRegistryService } from "./template-registry.service";
 
