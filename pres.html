@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="ru">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Доходные дома Ростова-на-Дону</title>
+  <style>
+      :root {
+          color-scheme: light;
+          font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+          background: #f4f5f7;
+          color: #171a1f;
+      }
+
+      * {
+          box-sizing: border-box;
+      }
+
+      body {
+          margin: 0;
+      }
+
+      .deck {
+          display: grid;
+          gap: 28px;
+          padding: 32px;
+      }
+
+      .slide {
+          width: min(1120px, calc(100vw - 64px));
+          aspect-ratio: 16 / 9;
+          margin: 0 auto;
+          padding: 56px;
+          background: #ffffff;
+          border: 1px solid #d9dee7;
+          box-shadow: 0 16px 50px rgba(23, 26, 31, 0.12);
+          overflow: hidden;
+      }
+
+      .container {
+          gap: var(--gap, 0px);
+          padding: var(--padding, 0px);
+          align-items: var(--align, stretch);
+          justify-content: var(--justify, flex-start);
+      }
+
+      .container-stack {
+          display: flex;
+          flex-direction: column;
+          height: 100%;
+      }
+
+      .container-row {
+          display: flex;
+          flex-direction: row;
+          height: 100%;
+      }
+
+      .container-row>.container {
+          flex: var(--width, 1) 1 0;
+      }
+
+      .container-grid {
+          display: grid;
+          grid-template-columns: repeat(var(--columns, auto-fit), minmax(180px, 1fr));
+          height: 100%;
+      }
+
+      h1 {
+          margin: 0;
+          font-size: 44px;
+          line-height: 1.06;
+          letter-spacing: 0;
+      }
+
+      h2 {
+          margin: 0;
+          font-size: 26px;
+          font-weight: 520;
+          line-height: 1.22;
+          color: #515966;
+          letter-spacing: 0;
+      }
+
+      h3 {
+          margin: 0 0 8px;
+          font-size: 19px;
+          line-height: 1.2;
+          letter-spacing: 0;
+      }
+
+      p,
+      li,
+      td,
+      th {
+          font-size: 19px;
+          line-height: 1.42;
+          letter-spacing: 0;
+      }
+
+      p {
+          margin: 0;
+      }
+
+      ul {
+          margin: 0;
+          padding-left: 26px;
+      }
+
+      li+li {
+          margin-top: 10px;
+      }
+
+      .cards {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+          gap: 14px;
+      }
+
+      .card {
+          border: 1px solid #d9dee7;
+          border-radius: 8px;
+          padding: 18px;
+          background: #f9fafb;
+      }
+
+      .card p {
+          font-size: 16px;
+          color: #454d5a;
+      }
+
+      table {
+          width: 100%;
+          border-collapse: collapse;
+      }
+
+      th,
+      td {
+          padding: 10px 12px;
+          border: 1px solid #d9dee7;
+          text-align: left;
+      }
+
+      th {
+          background: #f0f2f5;
+      }
+
+      .image-placeholder {
+          display: flex;
+          min-height: 240px;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          margin: 0;
+          border: 1px dashed #aab2c0;
+          border-radius: 8px;
+          color: #515966;
+          text-align: center;
+      }
+
+      .image-placeholder figcaption {
+          margin-top: 8px;
+          font-size: 13px;
+      }
+
+      .chart {
+          display: grid;
+          gap: 10px;
+          padding: 16px;
+          border: 1px solid #d9dee7;
+          border-radius: 8px;
+          background: #f9fafb;
+      }
+
+      .chart-row {
+          display: flex;
+          justify-content: space-between;
+          gap: 16px;
+          padding: 8px 0;
+          border-top: 1px solid #e4e8ef;
+      }
+  </style>
+</head>
+
+<body>
+<main class="deck">
+  <section class="slide" data-slide="1">
+    <div class="container container-row" style="--gap:24px">
+      <div class="container container-stack" style="--width:0.5">
+        <figure class="image-placeholder">
+          <div>Фасад исторического доходного дома в Ростове-на-Дону</div>
+          <figcaption>img_rostov_income_house_01</figcaption>
+        </figure>
+      </div>
+      <div class="container container-stack" style="--width:0.5">
+        <h1>Доходные дома Ростова-на-Дону</h1>
+        <h2>Исторический контекст и расцвет</h2>
+      </div>
+    </div>
+  </section>
+  <section class="slide" data-slide="2">
+    <div class="container container-stack" style="--gap:18px">
+      <div class="container container-stack" style="">
+        <h1>Архитектурные особенности и стили</h1>
+      </div>
+      <div class="container container-row" style="--gap:24px">
+        <div class="container container-stack" style="--width:0.5">
+          <ul>
+            <li>Модерн и эклектика — ведущие стили ростовских доходных домов</li>
+            <li>Богатая лепнина, эркеры, балконы и рустованные фасады</li>
+            <li>Дворовые флигели и световые колодцы для плотной застройки</li>
+            <li>Парадные подъезды с мозаичными полами и коваными решётками</li>
+          </ul>
+        </div>
+        <div class="container container-stack" style="--width:0.5">
+          <figure class="image-placeholder">
+            <div>Декорированный фасад доходного дома в стиле модерн</div>
+            <figcaption>img_rostov_facade_modern_02</figcaption>
+          </figure>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section class="slide" data-slide="3">
+    <div class="container container-stack" style="--gap:18px">
+      <div class="container container-stack" style="">
+        <h1>Знаковые примеры и архитекторы</h1>
+      </div>
+      <div class="container container-row" style="--gap:24px">
+        <div class="container container-stack" style="--width:0.5">
+          <div class="cards">
+            <article class="card">
+              <h3>Дом Маргариты Черновой</h3>
+              <p>Ул. Большая Садовая, 31. Архитектор Н.А. Дорошенко, 1893 г. Один из самых нарядных
+                доходных домов города.</p>
+            </article>
+            <article class="card">
+              <h3>Дом И. Зворыкина</h3>
+              <p>Ул. Большая Садовая, 68. Архитектор Г.Н. Григорьев. Выразительный пример эклектики с
+                богатой лепниной.</p>
+            </article>
+            <article class="card">
+              <h3>Дом А. Лицедеева</h3>
+              <p>Ул. Подбельского, 7. Архитектор А.А. Бекетов. Модерн с асимметричным фасадом и
+                коваными балконами.</p>
+            </article>
+          </div>
+        </div>
+        <div class="container container-stack" style="--width:0.5">
+          <figure class="image-placeholder">
+            <div>Дом Маргариты Черновой на Большой Садовой в Ростове-на-Дону</div>
+            <figcaption>img_chernova_house_03</figcaption>
+          </figure>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section class="slide" data-slide="4">
+    <div class="container container-stack" style="">
+      <div class="container container-stack" style="">
+        <h1>Экономика и быт: жизнь внутри дома</h1>
+      </div>
+      <div class="container container-stack" style="">
+        <div class="cards">
+          <article class="card">
+            <h3>Бизнес-модель</h3>
+            <p>Владелец сдавал квартиры и комнаты внаём. Доход покрывал строительство, содержание и
+              приносил прибыль. Управление часто поручали управляющему.</p>
+          </article>
+          <article class="card">
+            <h3>Люкс на парадных этажах</h3>
+            <p>Второй и третий этажи занимали просторные квартиры с гостиными, кабинетами и прислугой.
+              Снимали купцы, чиновники и состоятельные интеллигенты.</p>
+          </article>
+          <article class="card">
+            <h3>Комнаты для небогатых</h3>
+            <p>Верхние этажи и дворовые флигели делили на дешёвые комнаты. Там жили приказчики,
+              ремесленники, студенты и мелкие служащие.</p>
+          </article>
+          <article class="card">
+            <h3>Сервис и инфраструктура</h3>
+            <p>Лифты, дровяные склады, прачечные, дворницкие и конторы управляющего обеспечивали
+              бесперебойный быт большого дома.</p>
+          </article>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section class="slide" data-slide="5">
+    <div class="container container-stack" style="--gap:18px">
+      <div class="container container-stack" style="">
+        <h1>Современное состояние и сохранение</h1>
+      </div>
+      <div class="container container-stack" style="">
+        <ul>
+          <li>Многие доходные дома сохранились и используются как жилые и офисные здания в центре города
+          </li>
+          <li>Часть зданий имеет статус объектов культурного наследия регионального значения</li>
+          <li>Основные проблемы: износ конструкций, утрата лепного декора, несанкционированные перестройки
+          </li>
+          <li>Реставрация осложняется высокой стоимостью и длительностью согласований</li>
+          <li>Перспективы: программы льготной реставрации и приспособления под современное использование
+          </li>
+        </ul>
+      </div>
+    </div>
+  </section>
+</main>
+</body>
+
+</html>

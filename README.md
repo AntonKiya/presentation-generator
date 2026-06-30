@@ -824,6 +824,447 @@ DSL и базового web-preview. Автоматическая pixel/layout v
 Есть renderer smoke contract test: валидная презентация со всеми MVP elements
 должна отрендериться без exception и содержать ожидаемые HTML-блоки.
 
+## PPTX export contract
+
+PPTX export - следующий renderer поверх того же валидного `presentation JSON`.
+Он не должен менять внутреннюю модель сервиса и не должен превращать PPTX в
+source of truth.
+
+Актуальный code-level contract зафиксирован в:
+
+```text
+src/presentation-export/pptx/pptx-export-contract.ts
+```
+
+Этот этап фиксирует правила, support matrix, default options, статусы и issue
+types. Writer adapter на `pptxgenjs`, Preflight, Layout engine, Renderer и
+реальный `.pptx` export endpoint уже добавлены.
+
+### Architecture rule
+
+Правильный путь:
+
+```text
+valid presentation JSON
+  -> PPTX export preflight
+  -> PPTX layout engine
+  -> layouted slide model
+  -> PPTX renderer
+  -> PPTX writer adapter
+  -> .pptx buffer/file
+```
+
+Неправильный основной путь:
+
+```text
+presentation JSON -> HTML preview -> PPTX
+```
+
+HTML-preview и PPTX-export - это два разных renderer-а одного DSL. HTML-preview
+нужен для web-просмотра, но не является промежуточным форматом для PowerPoint.
+
+### Input contract
+
+PPTX export принимает только валидный `Presentation`:
+
+```ts
+PresentationSchema.parse(input)
+```
+
+Export не должен зависеть от:
+
+- outline;
+- generation attempts;
+- repair history;
+- `template_id`;
+- original LLM response;
+- HTML-preview.
+
+`template_id` важен для generation, validation, repair, template limits и debug,
+но в финальном `presentation.slides[]` его нет. Поэтому PPTX export должен
+работать только с:
+
+```text
+presentation.slides[].root_container
+```
+
+### Output contract
+
+MVP export должен возвращать редактируемый PowerPoint-файл:
+
+- text остается native editable text;
+- bullets остаются editable text;
+- cards рендерятся как editable shapes + text;
+- tables рендерятся как native PowerPoint tables;
+- charts рендерятся как native PowerPoint charts, где это поддержано writer-ом;
+- images на первом этапе могут быть placeholder shapes.
+
+Цель MVP - не pixel-perfect совпадение с web-preview, а стабильный,
+детерминированный и редактируемый `.pptx`.
+
+### Supported MVP mapping
+
+Первый PPTX exporter должен иметь deterministic fallback для каждого текущего
+MVP element type:
+
+```text
+title/subtitle/text -> native text box
+bullets             -> native text with bullet formatting
+image               -> placeholder shape, later real addImage
+cards               -> shapes + title/body text
+table               -> native table
+chart bar/line/pie  -> native chart where possible
+```
+
+Containers маппятся не в PowerPoint auto-layout, а в абсолютные координаты:
+
+```text
+stack -> vertical boxes
+row   -> horizontal boxes using child width
+grid  -> calculated cells
+```
+
+PowerPoint не является браузером и не имеет общего аналога CSS flex/grid для
+нашего произвольного дерева. Поэтому exporter обязан сначала вычислить boxes, а
+потом отрисовать native PPTX objects.
+
+### Layout contract
+
+PPTX layout engine должен быть отдельным слоем. Он получает DSL tree и возвращает
+layouted model:
+
+```text
+src/presentation-export/pptx/layout/
+  pptx-layout-engine.service.ts
+  pptx-layout.types.ts
+  pptx-layout.constants.ts
+```
+
+```ts
+type Box = {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+};
+
+type LayoutedNode = {
+  nodeId: string;
+  nodeType: "container" | "element";
+  dslType: string;
+  path: string;
+  box: Box;
+  children?: LayoutedNode[];
+};
+```
+
+Единицы измерения layout engine - inches, потому что это родная координатная
+система PowerPoint writer-а. `gap` и `padding` из DSL сейчас задаются в
+preview-пикселях, поэтому layout engine детерминированно переводит их в inches
+относительно wide 16:9 canvas.
+
+PPTX renderer не должен одновременно считать layout и вызывать writer API. Его
+роль - пройти по уже посчитанным `LayoutedNode` и создать native PPTX objects.
+
+На MVP фиксируем один canvas:
+
+```text
+wide 16:9
+примерно 13.333 x 7.5 inches
+safe area внутри слайда
+```
+
+Точные размеры `wide-16-9` живут в `PPTX_EXPORT_SLIDE_SIZES`, чтобы writer и
+layout engine использовали один contract. Safe area и эвристики первого layout
+engine живут в `pptx-layout.constants.ts`, а не в базовом DSL.
+
+Текущий layout engine:
+
+- строит `PptxPresentationLayout` и `PptxSlideLayout`;
+- кладет `root_container` внутрь safe area;
+- для `stack` раскладывает детей сверху вниз, учитывая `gap`, `padding` и
+  приблизительную высоту контента;
+- для `row` раскладывает детей слева направо и учитывает `width` у дочерних
+  контейнеров;
+- для `grid` считает deterministic cells и разрешает `columns: "auto"` через
+  стабильную эвристику;
+- не мутирует `presentation JSON`;
+- не вызывает writer и не знает про `pptxgenjs`;
+- возвращает `BOX_TOO_SMALL` warnings, если рассчитанный box слишком мал для
+  стабильного PPTX render.
+
+Эвристики высоты нужны только для первого PPTX renderer-а. Они не являются новой
+семантикой DSL и не заменяют template validation.
+
+### Renderer contract
+
+PPTX renderer получает валидный `presentation JSON` и заранее рассчитанный
+`PptxPresentationLayout`. Он не считает layout повторно и не импортирует
+`pptxgenjs` напрямую.
+
+Реализация находится здесь:
+
+```text
+src/presentation-export/pptx/render/
+  pptx-renderer.service.ts
+  pptx-render.types.ts
+```
+
+Текущий renderer:
+
+- создает writer presentation через `PptxWriterAdapter`;
+- добавляет slide на каждый `presentation.slides[]`;
+- проходит DSL tree и layout tree параллельно;
+- не рендерит layout containers как визуальные элементы;
+- рендерит `title`, `subtitle`, `text` как editable PowerPoint text boxes;
+- рендерит `bullets` как editable bullet text;
+- рендерит `image` как editable placeholder shape + text;
+- рендерит `cards` как editable shapes + text boxes;
+- рендерит `table` как native editable PowerPoint table;
+- рендерит `chart` `bar`, `line`, `pie` как native PowerPoint charts;
+- использует `resolvePptxExportTheme(options.themeId)`, не добавляя
+  PPTX-specific style в DSL;
+- возвращает writer handle, layout и issues.
+
+`PptxExportService.renderPresentation(...)` уже собирает связку
+`presentation -> layout -> renderer -> writer presentation handle`. Public HTTP
+endpoint для скачивания `.pptx` пока не добавлен.
+
+### Preflight contract
+
+PPTX preflight не дублирует Zod и template validators. Он отвечает на другой
+вопрос:
+
+```text
+Can this valid DSL be exported to PPTX with current exporter capabilities?
+```
+
+Реализация находится здесь:
+
+```text
+src/presentation-export/pptx/preflight/
+  pptx-export-preflight.service.ts
+  pptx-export-preflight.constants.ts
+```
+
+Preflight должен возвращать structured result:
+
+```ts
+type PptxExportStatus = "ok" | "exportable_with_warnings" | "blocked";
+
+type PptxExportIssue = {
+  severity: "warning" | "error";
+  code: PptxExportIssueCode;
+  message: string;
+  slideId?: string;
+  nodeId?: string;
+  path?: string;
+};
+```
+
+Для MVP большинство проблем должны быть warnings, а не blockers:
+
+- text may overflow;
+- table too dense;
+- too many card items;
+- chart labels may be crowded;
+- image placeholder used;
+- grid auto columns resolved approximately.
+
+Блокировать export стоит только если exporter реально не может создать корректный
+файл: unsupported element/container после schema validation, невозможные slide
+dimensions, invalid chart data that escaped validation или writer failure.
+
+Текущий Preflight делает легкую детерминированную проверку:
+
+- проходит по всем slides и `root_container` деревьям;
+- проверяет container/element/chart support относительно PPTX contract;
+- предупреждает о `grid.columns = "auto"`, потому что layout engine будет
+  разрешать это эвристикой;
+- предупреждает о слишком глубокой вложенности контейнеров;
+- предупреждает о плотном контенте: длинный text/title/subtitle, много bullets,
+  много cards, широкие/длинные tables, crowded chart labels;
+- предупреждает, что images пока идут как placeholder shapes, а `imageMode:
+  "embed"` еще не имеет реального asset pipeline.
+
+Preflight не меняет `presentation JSON`, не чинит контент и не запускает LLM.
+Его задача - заранее дать технический статус пригодности для текущего PPTX
+exporter-а.
+
+### Warnings contract
+
+PPTX export может вернуть warnings. Это нормальная часть MVP, а не ошибка.
+
+Текущие issue codes в contract:
+
+```text
+UNSUPPORTED_CONTAINER_TYPE
+UNSUPPORTED_ELEMENT_TYPE
+UNSUPPORTED_CHART_TYPE
+TEXT_MAY_OVERFLOW
+BULLETS_MAY_OVERFLOW
+CARDS_MAY_OVERFLOW
+TABLE_TOO_MANY_ROWS
+TABLE_TOO_MANY_COLUMNS
+CHART_TOO_MANY_LABELS
+IMAGE_PLACEHOLDER_USED
+IMAGE_ASSET_MISSING
+GRID_AUTO_RESOLVED_APPROXIMATELY
+BOX_TOO_SMALL
+CONTAINER_TOO_DEEPLY_NESTED
+WRITER_FAILURE
+```
+
+Warnings должны быть детерминированными и пригодными для debug/logging. Они не
+должны менять `presentation JSON`.
+
+### Default export options
+
+Стартовые options первого PPTX MVP:
+
+```ts
+{
+  slideSize: "wide-16-9",
+  themeId: "default",
+  imageMode: "placeholder",
+  overflowMode: "shrink",
+  objectMode: "editable",
+  includeDebug: false
+}
+```
+
+Они задают контракт поведения, но не добавляют PPTX-specific fields в базовый
+DSL.
+
+### PptxGenJS writer adapter
+
+`pptxgenjs` подключен только внутри writer adapter:
+
+```text
+src/presentation-export/pptx/writer/
+  pptx-writer.types.ts
+  pptx-writer.adapter.ts
+  pptx-genjs.adapter.ts
+```
+
+Adapter сейчас умеет:
+
+- создать presentation с custom wide 16:9 layout;
+- применить базовую metadata;
+- добавить пустой slide;
+- добавить editable text boxes;
+- добавить editable shapes;
+- добавить native tables;
+- добавить native charts;
+- записать результат в `Buffer`;
+- скрыть native `pptxgenjs` objects за opaque handles.
+
+Остальной export-домен не должен размазывать прямые вызовы `pptxgenjs`.
+Следующие export-этапы должны расширять writer adapter или отдельные writer
+ports, а не импортировать библиотеку напрямую в layout/render/generation код.
+
+### Style and theme contract
+
+PPTX-specific style не должен попадать в базовый DSL.
+
+Текущий theme layer находится здесь:
+
+```text
+src/presentation-export/pptx/theme/
+  pptx-export-theme.ts
+```
+
+Правильная зависимость:
+
+```text
+DSL element type + optional abstract style/source fields
+  -> ExportTheme
+  -> concrete PPTX writer options
+```
+
+Первый exporter сейчас имеет только один минимальный `default` theme:
+
+- fonts;
+- colors;
+- spacing;
+- typography;
+- card/table/chart defaults.
+
+Это не финальная дизайн-система и не набор пользовательских тем. На текущем
+этапе theme layer нужен только как аккуратная граница, чтобы renderer не хранил
+стили прямо внутри себя и чтобы будущие осмысленные темы можно было добавить
+без изменения DSL.
+
+`style_hints` из templates пока остаются prompt metadata. Они не являются
+обязательной runtime-инструкцией для PPTX exporter.
+
+### Non-goals for first PPTX MVP
+
+Первый PPTX MVP не должен пытаться закрыть:
+
+- HTML-to-PPTX conversion;
+- pixel-perfect parity with web-preview;
+- real image asset pipeline;
+- auto-paging tables;
+- complex PowerPoint masters/templates;
+- SmartArt;
+- animations/transitions;
+- advanced chart styling;
+- visual regression/PDF rendering;
+- importing or editing existing PPTX files;
+- using templates as PowerPoint templates.
+
+### Module boundary
+
+PPTX export живет в отдельном домене:
+
+```text
+src/presentation-export/
+  presentation-export.module.ts
+
+src/presentation-export/pptx/
+  pptx-export.module.ts
+  pptx-export.service.ts
+  pptx-export.controller.ts
+  pptx-export.types.ts
+  pptx-export-contract.ts
+  layout/
+  preflight/
+  render/
+  theme/
+  writer/
+```
+
+Этот модуль может импортировать `PresentationSchema` и DSL-типы из
+`presentation-generation/schemas`, но не должен импортировать
+`PresentationGenerationService`.
+
+Правильная зависимость:
+
+```text
+presentation-generation/schemas
+  -> presentation-export/pptx
+```
+
+Неправильная зависимость:
+
+```text
+presentation-generation.service
+  -> presentation-export
+```
+
+Текущий `PptxExportController` раскрывает contract, preflight и export
+endpoints:
+
+```text
+GET /presentation-export/pptx/contract
+POST /presentation-export/pptx/preflight
+POST /presentation-export/pptx/export
+```
+
+Export endpoint построен поверх уже существующих Preflight, Layout engine,
+Renderer и Writer layers.
+
 ## API
 
 Base controller:
@@ -860,6 +1301,131 @@ Base controller:
 
 Принимает уже готовый `presentation JSON` или `{ presentation }` wrapper и
 рендерит HTML preview без LLM-вызова.
+
+Export controller:
+
+```text
+/presentation-export
+```
+
+### GET /presentation-export/pptx/contract
+
+Возвращает текущий PPTX export contract: support matrix, default options,
+MIME-type, правила связи с DSL и ограничения первого MVP.
+
+Этот endpoint не создает `.pptx`; он нужен как стабильная introspection-точка
+для текущих возможностей export-домена.
+
+### POST /presentation-export/pptx/preflight
+
+Принимает валидный `presentation JSON` напрямую или wrapper:
+
+```json
+{
+  "presentation": {
+    "id": "presentation_1",
+    "type": "presentation",
+    "slides": [
+      {
+        "id": "slide_1",
+        "type": "slide",
+        "root_container": {
+          "type": "stack",
+          "children": [
+            {
+              "id": "el_1_1",
+              "type": "title",
+              "text": "Demo slide"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "options": {
+    "imageMode": "placeholder"
+  }
+}
+```
+
+Сначала вход проверяется через `PresentationSchema`. Затем Preflight проверяет,
+насколько этот валидный DSL пригоден для текущего PPTX exporter-а.
+
+Ответ:
+
+```json
+{
+  "status": "ok",
+  "issues": []
+}
+```
+
+Возможные статусы:
+
+- `ok` - текущий exporter не видит известных проблем;
+- `exportable_with_warnings` - export возможен, но есть ожидаемые MVP-ограничения
+  или плотный контент;
+- `blocked` - текущий exporter не сможет надежно создать корректный PPTX.
+
+Этот endpoint не создает `.pptx` и не меняет `presentation JSON`.
+
+### POST /presentation-export/pptx/export
+
+Принимает валидный `presentation JSON` напрямую или wrapper:
+
+```json
+{
+  "presentation": {
+    "id": "presentation_1",
+    "type": "presentation",
+    "slides": [
+      {
+        "id": "slide_1",
+        "type": "slide",
+        "root_container": {
+          "type": "stack",
+          "children": [
+            {
+              "id": "el_1_1",
+              "type": "title",
+              "text": "Demo slide"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "options": {
+    "imageMode": "placeholder"
+  },
+  "fileName": "demo"
+}
+```
+
+Endpoint запускает:
+
+```text
+PresentationSchema
+  -> Preflight
+  -> Layout engine
+  -> Renderer
+  -> Writer
+  -> .pptx buffer
+```
+
+Успешный ответ - binary `.pptx` download:
+
+```text
+Content-Type: application/vnd.openxmlformats-officedocument.presentationml.presentation
+Content-Disposition: attachment; filename="demo.pptx"
+X-Pptx-Export-Status: ok | exportable_with_warnings
+X-Pptx-Export-Issues-Count: <number>
+```
+
+Если Preflight возвращает `blocked`, endpoint отвечает `422` с issue list. Если
+writer/render layer падает, endpoint отвечает `500` с `WRITER_FAILURE` issues.
+
+Warnings не блокируют скачивание `.pptx`.
 
 ## Environment
 
@@ -898,11 +1464,22 @@ npm install
 npm run start:dev
 npm run typecheck
 npm run test:contracts
+npm run test:pptx
 npm run build
 ```
 
 `test:contracts` не вызывает LLM и не ходит в OpenRouter. Это защитный контур
-для схем, validators, JSON Schema contracts, id normalizer и renderer smoke.
+для схем, validators, JSON Schema contracts, id normalizer, renderer smoke,
+PPTX writer adapter contract, PPTX Preflight, PPTX Layout engine, PPTX Renderer
+PPTX Theme и полный PPTX pipeline.
+
+`test:pptx` запускает только PPTX export-домен. Это быстрый контур для проверки
+слоев `contract -> preflight -> layout -> renderer -> writer`, включая создание
+реального `.pptx` buffer в памяти.
+
+Команда запускается через `node --experimental-vm-modules`, потому что
+`pptxgenjs` использует dynamic import при записи PPTX buffer, а Jest без этого
+флага не может выполнить такой путь в VM.
 
 Сейчас contract suite покрывает:
 
@@ -918,7 +1495,13 @@ npm run build
 - wrapper `{ template_id, slide }`;
 - generated Zod-backed JSON Schema;
 - backend id normalization;
-- renderer smoke.
+- renderer smoke;
+- PPTX writer adapter;
+- PPTX export Preflight;
+- PPTX Layout engine;
+- PPTX Renderer;
+- PPTX Theme;
+- PPTX export pipeline.
 
 ## Current MVP decisions and limits
 
@@ -935,7 +1518,9 @@ npm run build
   обработчика;
 - image assets пока placeholder-based;
 - prompt/version snapshots пока не ведутся;
-- PPTX/PDF/PNG/HTML export как отдельные артефакты пока не реализован.
+- PPTX contract, writer adapter, Preflight, Layout engine, Renderer, Theme и
+  `.pptx` export endpoint реализованы;
+- PDF/PNG/HTML export как отдельные артефакты пока не реализован.
 
 Главный критерий текущего фундамента: валидный `presentation JSON` должен быть
 стабильным внутренним форматом, пригодным для preview, будущего экспорта и
