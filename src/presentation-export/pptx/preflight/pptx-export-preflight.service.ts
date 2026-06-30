@@ -91,7 +91,7 @@ export class PptxExportPreflightService {
           severity: "warning",
           code: "GRID_AUTO_RESOLVED_APPROXIMATELY",
           message:
-            "Grid columns='auto' will be resolved by the PPTX layout engine using deterministic heuristics.",
+            "Grid columns='auto' will be resolved by the shared layout engine using deterministic heuristics.",
           slideId: slide.id,
           nodeId: container.id,
           path: `${path}.columns`,

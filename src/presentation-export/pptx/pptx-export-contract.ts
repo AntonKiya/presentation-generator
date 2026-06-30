@@ -9,6 +9,12 @@ import type {
   ChartType,
   ElementType,
 } from "../../presentation-generation/schemas/element-schema";
+import {
+  getPresentationLayoutSlideSize,
+  PRESENTATION_LAYOUT_SLIDE_SIZES,
+  type PresentationLayoutSlideSize,
+  type PresentationLayoutSlideSizeDimensions,
+} from "../../presentation-layout";
 
 export const PPTX_EXPORT_CONTRACT_VERSION = "pptx-export-contract-v1";
 
@@ -26,19 +32,12 @@ export const PPTX_EXPORT_SUPPORTED_CHART_TYPES = [
   "pie",
 ] as const satisfies readonly ChartType[];
 
-export type PptxExportSlideSize = "wide-16-9";
+export type PptxExportSlideSize = PresentationLayoutSlideSize;
 
-export type PptxExportSlideSizeDimensions = {
-  width: number;
-  height: number;
-};
+export type PptxExportSlideSizeDimensions =
+  PresentationLayoutSlideSizeDimensions;
 
-export const PPTX_EXPORT_SLIDE_SIZES = {
-  "wide-16-9": {
-    width: 13.333,
-    height: 7.5,
-  },
-} as const satisfies Record<PptxExportSlideSize, PptxExportSlideSizeDimensions>;
+export const PPTX_EXPORT_SLIDE_SIZES = PRESENTATION_LAYOUT_SLIDE_SIZES;
 
 export type PptxExportThemeId = "default";
 
@@ -78,7 +77,7 @@ export function resolvePptxExportOptions(
 export function getPptxExportSlideSize(
   slideSize: PptxExportSlideSize,
 ): PptxExportSlideSizeDimensions {
-  return PPTX_EXPORT_SLIDE_SIZES[slideSize];
+  return getPresentationLayoutSlideSize(slideSize);
 }
 
 export type PptxExportStatus =
