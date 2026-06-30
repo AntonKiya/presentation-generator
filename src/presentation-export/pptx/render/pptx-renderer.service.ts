@@ -17,6 +17,7 @@ import type {
   PptxLayoutNode,
   PptxSlideLayout,
 } from "../layout";
+import { resolveCardsColumns } from "../layout";
 import {
   PPTX_WRITER_ADAPTER,
   type PptxWriterAdapter,
@@ -44,7 +45,7 @@ export class PptxRendererService {
   renderPresentation(input: PptxRenderPresentationInput): PptxRenderResult {
     const options = resolvePptxExportOptions(input.options);
     const theme = resolvePptxExportTheme(options.themeId);
-    const issues = [...input.layout.issues];
+    const issues: PptxExportIssue[] = [...input.layout.issues];
     const writerPresentation = this.writer.createPresentation({
       metadata: {
         title: input.presentation.title ?? input.presentation.id,
@@ -450,18 +451,6 @@ function toChartSeries(element: ChartElement): PptxWriterChartSeries[] {
     labels: element.labels,
     values: series.values,
   }));
-}
-
-function resolveCardsColumns(itemsCount: number): number {
-  if (itemsCount <= 2) {
-    return Math.max(1, itemsCount);
-  }
-
-  if (itemsCount <= 4) {
-    return 2;
-  }
-
-  return 3;
 }
 
 function insetBox(box: PptxLayoutBox, inset: number): PptxLayoutBox {

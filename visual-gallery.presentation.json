@@ -1,0 +1,467 @@
+{
+  "id": "presentation_visual_gallery",
+  "type": "presentation",
+  "title": "Visual Gallery: Urban Vertical Farm",
+  "slides": [
+    {
+      "id": "gallery_slide_01_cover",
+      "type": "slide",
+      "root_container": {
+        "type": "stack",
+        "gap": 16,
+        "align": "center",
+        "justify": "center",
+        "children": [
+          {
+            "type": "stack",
+            "slot": "title",
+            "accepts": ["title"],
+            "required": true,
+            "children": [
+              {
+                "id": "gallery_el_01_title",
+                "type": "title",
+                "text": "Городская вертикальная ферма"
+              }
+            ]
+          },
+          {
+            "type": "stack",
+            "slot": "body",
+            "accepts": ["subtitle", "text"],
+            "required": false,
+            "children": [
+              {
+                "type": "stack",
+                "gap": 10,
+                "align": "center",
+                "children": [
+                  {
+                    "id": "gallery_el_01_subtitle",
+                    "type": "subtitle",
+                    "text": "Как компактная ферма снабжает район свежей зеленью"
+                  },
+                  {
+                    "id": "gallery_el_01_text",
+                    "type": "text",
+                    "text": "Демонстрационная презентация для проверки всех текущих DSL-элементов, layout templates, HTML preview и PPTX export."
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "gallery_slide_02_content",
+      "type": "slide",
+      "root_container": {
+        "type": "stack",
+        "gap": 18,
+        "children": [
+          {
+            "type": "stack",
+            "slot": "title",
+            "accepts": ["title", "subtitle"],
+            "required": true,
+            "children": [
+              {
+                "type": "stack",
+                "gap": 8,
+                "children": [
+                  {
+                    "id": "gallery_el_02_title",
+                    "type": "title",
+                    "text": "Что входит в MVP фермы"
+                  },
+                  {
+                    "id": "gallery_el_02_subtitle",
+                    "type": "subtitle",
+                    "text": "Один содержательный слайд с text, bullets и cards"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "stack",
+            "slot": "body",
+            "accepts": ["text", "bullets", "cards"],
+            "required": true,
+            "children": [
+              {
+                "type": "stack",
+                "gap": 14,
+                "children": [
+                  {
+                    "id": "gallery_el_02_text",
+                    "type": "text",
+                    "text": "Проект объединяет модуль выращивания, локальную логистику и цифровой мониторинг. Для района это выглядит как небольшая инфраструктура рядом с потребителем, а не как удаленное производство."
+                  },
+                  {
+                    "id": "gallery_el_02_bullets",
+                    "type": "bullets",
+                    "items": [
+                      "Салаты и микрозелень выращиваются круглый год",
+                      "Доставка занимает меньше двух часов после сбора",
+                      "Система климата снижает потери воды и питательных растворов",
+                      "Данные по урожайности доступны оператору ежедневно"
+                    ]
+                  },
+                  {
+                    "id": "gallery_el_02_cards",
+                    "type": "cards",
+                    "items": [
+                      {
+                        "title": "Компактность",
+                        "text": "Ферма размещается в бывшем складе площадью 420 м²."
+                      },
+                      {
+                        "title": "Предсказуемость",
+                        "text": "Урожайность планируется партиями на шесть недель вперед."
+                      },
+                      {
+                        "title": "Близость",
+                        "text": "Кафе и магазины получают продукт без длинной холодной цепи."
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "gallery_slide_03_split",
+      "type": "slide",
+      "root_container": {
+        "type": "stack",
+        "gap": 18,
+        "children": [
+          {
+            "type": "stack",
+            "slot": "title",
+            "accepts": ["title", "subtitle"],
+            "required": true,
+            "children": [
+              {
+                "type": "stack",
+                "gap": 8,
+                "children": [
+                  {
+                    "id": "gallery_el_03_title",
+                    "type": "title",
+                    "text": "Операционная модель"
+                  },
+                  {
+                    "id": "gallery_el_03_subtitle",
+                    "type": "subtitle",
+                    "text": "Split layout: таблица, line chart, image и pie chart"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "row",
+            "gap": 24,
+            "children": [
+              {
+                "type": "stack",
+                "slot": "body",
+                "width": 0.5,
+                "accepts": ["text", "bullets", "cards", "table", "chart", "image"],
+                "required": true,
+                "children": [
+                  {
+                    "type": "stack",
+                    "gap": 12,
+                    "children": [
+                      {
+                        "id": "gallery_el_03_text",
+                        "type": "text",
+                        "text": "Команда управляет посадками партиями: каждая культура проходит цикл от рассады до упаковки с собственным режимом света и влажности."
+                      },
+                      {
+                        "id": "gallery_el_03_table",
+                        "type": "table",
+                        "columns": ["Культура", "Цикл", "Выход"],
+                        "rows": [
+                          ["Базилик", "28 дней", "18 кг/нед."],
+                          ["Рукола", "21 день", "24 кг/нед."],
+                          ["Микрозелень", "10 дней", "31 кг/нед."],
+                          ["Салат", "35 дней", "42 кг/нед."]
+                        ]
+                      },
+                      {
+                        "id": "gallery_el_03_line_chart",
+                        "type": "chart",
+                        "chart_type": "line",
+                        "labels": ["Янв", "Фев", "Мар", "Апр", "Май"],
+                        "series": [
+                          {
+                            "label": "План",
+                            "values": [72, 78, 83, 88, 94]
+                          },
+                          {
+                            "label": "Факт",
+                            "values": [69, 81, 80, 91, 96]
+                          }
+                        ],
+                        "unit": "кг"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "stack",
+                "slot": "visual",
+                "width": 0.5,
+                "accepts": ["image", "chart", "table", "cards", "text", "bullets"],
+                "required": false,
+                "children": [
+                  {
+                    "type": "stack",
+                    "gap": 12,
+                    "children": [
+                      {
+                        "id": "gallery_el_03_image",
+                        "type": "image",
+                        "asset_id": "placeholder://vertical-farm-racks-01",
+                        "alt": "Стеллажи с зеленью и LED-подсветкой внутри городской фермы",
+                        "fit": "cover"
+                      },
+                      {
+                        "id": "gallery_el_03_pie_chart",
+                        "type": "chart",
+                        "chart_type": "pie",
+                        "slices": [
+                          {
+                            "label": "Кафе",
+                            "value": 44
+                          },
+                          {
+                            "label": "Розница",
+                            "value": 36
+                          },
+                          {
+                            "label": "Подписки",
+                            "value": 20
+                          }
+                        ],
+                        "unit": "%"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "gallery_slide_04_data_focus",
+      "type": "slide",
+      "root_container": {
+        "type": "stack",
+        "gap": 18,
+        "children": [
+          {
+            "type": "stack",
+            "slot": "title",
+            "accepts": ["title", "subtitle"],
+            "required": true,
+            "children": [
+              {
+                "type": "stack",
+                "gap": 8,
+                "children": [
+                  {
+                    "id": "gallery_el_04_title",
+                    "type": "title",
+                    "text": "Экономика пилотного квартала"
+                  },
+                  {
+                    "id": "gallery_el_04_subtitle",
+                    "type": "subtitle",
+                    "text": "Data focus: bar chart, table и короткий вывод"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "row",
+            "gap": 24,
+            "children": [
+              {
+                "type": "stack",
+                "slot": "data",
+                "width": 0.65,
+                "accepts": ["chart", "table"],
+                "required": true,
+                "children": [
+                  {
+                    "type": "stack",
+                    "gap": 12,
+                    "children": [
+                      {
+                        "id": "gallery_el_04_bar_chart",
+                        "type": "chart",
+                        "chart_type": "bar",
+                        "labels": ["Аренда", "Энергия", "Труд", "Логистика"],
+                        "series": [
+                          {
+                            "label": "Текущая модель",
+                            "values": [22, 31, 28, 19]
+                          },
+                          {
+                            "label": "После оптимизации",
+                            "values": [22, 24, 26, 12]
+                          }
+                        ],
+                        "unit": "%"
+                      },
+                      {
+                        "id": "gallery_el_04_table",
+                        "type": "table",
+                        "columns": ["Показатель", "M1", "M3", "M6"],
+                        "rows": [
+                          ["Выручка", "1.2 млн", "1.7 млн", "2.4 млн"],
+                          ["Списания", "9%", "6%", "4%"],
+                          ["Клиенты", "18", "31", "46"]
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "stack",
+                "slot": "comment",
+                "width": 0.35,
+                "accepts": ["text", "bullets"],
+                "required": false,
+                "children": [
+                  {
+                    "type": "stack",
+                    "gap": 12,
+                    "children": [
+                      {
+                        "id": "gallery_el_04_comment_text",
+                        "type": "text",
+                        "text": "Ключевой эффект появляется не только от урожайности, но и от сокращения логистики, списаний и времени между сбором и продажей."
+                      },
+                      {
+                        "id": "gallery_el_04_comment_bullets",
+                        "type": "bullets",
+                        "items": [
+                          "Энергия остается главным драйвером затрат",
+                          "Порог окупаемости достигается при 38 клиентах",
+                          "Подписки сглаживают недельные колебания спроса"
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "gallery_slide_05_grid",
+      "type": "slide",
+      "root_container": {
+        "type": "stack",
+        "gap": 18,
+        "children": [
+          {
+            "type": "stack",
+            "slot": "title",
+            "accepts": ["title", "subtitle"],
+            "required": true,
+            "children": [
+              {
+                "type": "stack",
+                "gap": 8,
+                "children": [
+                  {
+                    "id": "gallery_el_05_title",
+                    "type": "title",
+                    "text": "Галерея модулей и сценариев"
+                  },
+                  {
+                    "id": "gallery_el_05_subtitle",
+                    "type": "subtitle",
+                    "text": "Grid content: cards и несколько image placeholders"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "grid",
+            "slot": "body",
+            "columns": "auto",
+            "gap": 16,
+            "accepts": ["cards", "image"],
+            "required": true,
+            "children": [
+              {
+                "id": "gallery_el_05_cards",
+                "type": "cards",
+                "items": [
+                  {
+                    "title": "Рассада",
+                    "text": "Стартовые лотки с контролем влажности и мягким светом."
+                  },
+                  {
+                    "title": "Рост",
+                    "text": "Основные стеллажи меняют спектр света по фазам цикла."
+                  },
+                  {
+                    "title": "Сбор",
+                    "text": "Партии маркируются временем среза и заказчиком."
+                  },
+                  {
+                    "title": "Упаковка",
+                    "text": "Небольшая зона охлаждения готовит продукт к доставке."
+                  },
+                  {
+                    "title": "Мониторинг",
+                    "text": "Датчики собирают температуру, pH и расход воды."
+                  },
+                  {
+                    "title": "Доставка",
+                    "text": "Короткий маршрут закрывается электрическим фургоном."
+                  }
+                ]
+              },
+              {
+                "id": "gallery_el_05_image_01",
+                "type": "image",
+                "asset_id": "placeholder://seedling-zone-02",
+                "alt": "Зона рассады с кассетами молодых растений",
+                "fit": "contain"
+              },
+              {
+                "id": "gallery_el_05_image_02",
+                "type": "image",
+                "asset_id": "placeholder://delivery-map-03",
+                "alt": "Схема локальной доставки по району",
+                "fit": "fill"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

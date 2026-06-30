@@ -14,12 +14,14 @@ describe("preview renderer smoke contract", () => {
 
     const html = renderer.renderHtml(presentation);
 
-    expect(html).toContain('<section class="slide" data-slide="1">');
+    expect(html).toContain('<section class="slide" data-slide="1"');
+    expect(html).toContain("--preview-slide-width:1120px");
+    expect(html).toContain('style="left:');
     expect(html).toContain("<h1>Title</h1>");
     expect(html).toContain("<h2>Subtitle</h2>");
     expect(html).toContain("<ul>");
-    expect(html).toContain('class="image-placeholder"');
-    expect(html).toContain('class="cards"');
+    expect(html).toContain("image-placeholder");
+    expect(html).toContain("cards");
     expect(html).toContain("<table>");
     expect(html).toContain("<strong>bar chart</strong>");
   });
