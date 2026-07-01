@@ -8,6 +8,7 @@ import {
   type PptxWriterChartSeries,
   type PptxWriterChartType,
   type PptxWriterCreateOptions,
+  type PptxWriterImageOptions,
   type PptxWriterPresentation,
   type PptxWriterShapeOptions,
   type PptxWriterShapeType,
@@ -74,6 +75,22 @@ export class PptxGenJsAdapter implements PptxWriterAdapter {
       fill: toNativeFill(options.fill),
       line: toNativeLine(options.line),
       rectRadius: options.radius,
+    });
+  }
+
+  addImage(slide: PptxWriterSlide, options: PptxWriterImageOptions): void {
+    getNativeSlide(slide).addImage({
+      ...toNativePosition(options),
+      objectName: options.objectName,
+      path: options.path,
+      transparency: options.transparency,
+      sizing: options.sizing
+        ? {
+            type: options.sizing,
+            w: options.w,
+            h: options.h,
+          }
+        : undefined,
     });
   }
 

@@ -128,7 +128,6 @@ export type PptxExportResult = {
 
 export type PptxExportElementRenderingMode =
   | "native_text"
-  | "native_bullets"
   | "editable_shapes_and_text"
   | "native_table"
   | "native_chart"
@@ -157,9 +156,9 @@ export const PPTX_EXPORT_ELEMENT_SUPPORT = {
     mvpBehavior: "Render as editable PowerPoint text.",
   },
   bullets: {
-    rendering: "native_bullets",
+    rendering: "editable_shapes_and_text",
     editable: true,
-    mvpBehavior: "Render as editable PowerPoint bullet text.",
+    mvpBehavior: "Render as editable arrow marker and text boxes.",
   },
   image: {
     rendering: "placeholder_or_native_image",

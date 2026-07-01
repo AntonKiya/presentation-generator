@@ -30,7 +30,7 @@
     "cards_max_items": 4
   },
   "fallbacks": {
-    "if_too_much_text": "use_bullets",
+    "if_too_much_text": "use_cards_or_short_takeaways",
     "if_many_parallel_points": "use_cards"
   }
 }

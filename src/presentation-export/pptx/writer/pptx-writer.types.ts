@@ -83,6 +83,15 @@ export type PptxWriterShapeOptions = PptxWriterBox & {
   radius?: number;
 };
 
+export type PptxWriterImageSizing = "contain" | "cover" | "crop";
+
+export type PptxWriterImageOptions = PptxWriterBox & {
+  objectName?: string;
+  path: string;
+  sizing?: PptxWriterImageSizing;
+  transparency?: number;
+};
+
 export type PptxWriterTableCell = {
   text: string;
   options?: PptxWriterTextStyle & {

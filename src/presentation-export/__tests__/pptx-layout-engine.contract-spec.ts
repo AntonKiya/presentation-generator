@@ -10,6 +10,7 @@ import {
   PptxLayoutEngineService,
   resolveGridColumns,
 } from "../pptx";
+import { PRESENTATION_DEFAULT_THEME } from "../../presentation-theme";
 import { PptxExportPreflightService } from "../pptx/preflight";
 import { PptxRendererService } from "../pptx/render";
 import { PptxGenJsAdapter } from "../pptx/writer";
@@ -110,6 +111,182 @@ describe("PPTX layout engine", () => {
     expect(three.box.y).toBeGreaterThan(one.box.y);
     expect(two.box.x).toBeGreaterThan(one.box.x);
     expect(four.box.x).toBeGreaterThan(three.box.x);
+  });
+
+  it("creates non-overlapping internal bullet item boxes for wrapped text", () => {
+    const engine = new PptxLayoutEngineService();
+    const slide = createContentSlide();
+
+    slide.root_container = {
+      type: "stack",
+      gap: 18,
+      children: [
+        {
+          type: "stack",
+          slot: "title",
+          accepts: ["title"],
+          required: true,
+          children: [
+            {
+              id: "wrapped_bullets_title",
+              type: "title",
+              text: "Wrapped bullets",
+            },
+          ],
+        },
+        {
+          id: "wrapped_bullets",
+          type: "bullets",
+          items: [
+            "This is a deliberately long bullet item that should wrap to multiple lines inside the available text box.",
+            "A second long bullet item verifies that wrapped text receives its own vertical area and cannot overlap the previous item.",
+            "A short final item.",
+          ],
+        },
+      ],
+    };
+
+    const layout = engine.layoutSlide(slide);
+    const bulletsNode = layout.root.children?.[1];
+    const internalLayout =
+      bulletsNode?.internal?.type === "bullets" ? bulletsNode.internal : undefined;
+
+    expect(internalLayout).toBeDefined();
+    expect(internalLayout?.items).toHaveLength(3);
+
+    const items = internalLayout?.items ?? [];
+
+    items.slice(1).forEach((item, index) => {
+      const previousItem = items[index];
+
+      expect(item.itemBox.y).toBeGreaterThanOrEqual(
+        previousItem.itemBox.y + previousItem.itemBox.h,
+      );
+    });
+    items.forEach((item) => {
+      expect(item.textBox.x).toBeGreaterThan(item.markerBox.x);
+      expect(item.textBox.h).toBe(item.itemBox.h);
+      expect(item.markerBox.y).toBeLessThanOrEqual(item.textBox.y + 0.02);
+      expect(item.textFontSize).toBeGreaterThan(0);
+      expect(item.markerFontSize).toBeGreaterThan(item.textFontSize);
+    });
+    expect(internalLayout?.usedHeight).toBeLessThanOrEqual(
+      bulletsNode?.box.h ?? Number.POSITIVE_INFINITY,
+    );
+  });
+
+  it("creates internal card boxes with title and body areas", () => {
+    const engine = new PptxLayoutEngineService();
+    const slide = createContentSlide();
+
+    slide.root_container = {
+      type: "stack",
+      gap: 18,
+      children: [
+        {
+          type: "stack",
+          slot: "title",
+          accepts: ["title"],
+          required: true,
+          children: [
+            {
+              id: "cards_title",
+              type: "title",
+              text: "Cards",
+            },
+          ],
+        },
+        {
+          id: "cards",
+          type: "cards",
+          items: [
+            { title: "First card", text: "A larger readable body." },
+            { title: "Second card", text: "Another readable body." },
+            { title: "Third card", text: "A final readable body." },
+          ],
+        },
+      ],
+    };
+
+    const layout = engine.layoutSlide(slide);
+    const cardsNode = layout.root.children?.[1];
+    const internalLayout =
+      cardsNode?.internal?.type === "cards" ? cardsNode.internal : undefined;
+
+    expect(internalLayout).toBeDefined();
+    expect(internalLayout?.columns).toBe(2);
+    expect(internalLayout?.rows).toBe(2);
+    expect(internalLayout?.items).toHaveLength(3);
+
+    internalLayout?.items.forEach((item) => {
+      expect(item.cardBox.x).toBeGreaterThanOrEqual(cardsNode?.box.x ?? 0);
+      expect(item.cardBox.y).toBeGreaterThanOrEqual(cardsNode?.box.y ?? 0);
+      expect(item.titleBox.x).toBeGreaterThan(item.cardBox.x);
+      expect(item.bodyBox.y).toBeGreaterThan(item.titleBox.y);
+      expect(item.bodyBox.y + item.bodyBox.h).toBeLessThanOrEqual(
+        item.cardBox.y + item.cardBox.h,
+      );
+      expect(item.titleFontSize).toBeGreaterThan(0);
+      expect(item.bodyFontSize).toBeGreaterThan(0);
+    });
+  });
+
+  it("fits long card text by reducing card typography inside the fixed card box", () => {
+    const engine = new PptxLayoutEngineService();
+    const slide = createContentSlide();
+
+    slide.root_container = {
+      type: "stack",
+      gap: 18,
+      children: [
+        {
+          type: "stack",
+          slot: "title",
+          accepts: ["title"],
+          required: true,
+          children: [{ id: "long_cards_title", type: "title", text: "Long cards" }],
+        },
+        {
+          id: "long_cards",
+          type: "cards",
+          items: [
+            {
+              title: "A deliberately verbose card title",
+              text: "This body text is intentionally long so the shared layout engine has to fit typography inside the card instead of letting renderer-specific overflow leak outside the panel.",
+            },
+            {
+              title: "Second verbose card title",
+              text: "Another long body verifies that title and body areas stay inside the same card bounds and keep deterministic geometry for HTML and PPTX.",
+            },
+            {
+              title: "Third verbose card title",
+              text: "The final card repeats the same pressure with enough content to force the card typography fitting path.",
+            },
+          ],
+        },
+      ],
+    };
+
+    const layout = engine.layoutSlide(slide);
+    const cardsNode = layout.root.children?.[1];
+    const internalLayout =
+      cardsNode?.internal?.type === "cards" ? cardsNode.internal : undefined;
+
+    expect(internalLayout).toBeDefined();
+    internalLayout?.items.forEach((item) => {
+      expect(item.titleBox.y + item.titleBox.h).toBeLessThanOrEqual(
+        item.cardBox.y + item.cardBox.h,
+      );
+      expect(item.bodyBox.y + item.bodyBox.h).toBeLessThanOrEqual(
+        item.cardBox.y + item.cardBox.h,
+      );
+      expect(item.titleFontSize).toBeLessThanOrEqual(
+        PRESENTATION_DEFAULT_THEME.typography.cardTitle,
+      );
+      expect(item.bodyFontSize).toBeLessThanOrEqual(
+        PRESENTATION_DEFAULT_THEME.typography.cardBody,
+      );
+    });
   });
 
   it("returns BOX_TOO_SMALL warnings without mutating the presentation", () => {

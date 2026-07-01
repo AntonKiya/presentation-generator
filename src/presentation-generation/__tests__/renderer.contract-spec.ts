@@ -19,8 +19,9 @@ describe("preview renderer smoke contract", () => {
     expect(html).toContain('style="left:');
     expect(html).toContain("<h1>Title</h1>");
     expect(html).toContain("<h2>Subtitle</h2>");
-    expect(html).toContain("<ul>");
-    expect(html).toContain("image-placeholder");
+    expect(html).toContain("bullet-item");
+    expect(html).toContain("bullet-marker");
+    expect(html).toContain("image-frame");
     expect(html).toContain("cards");
     expect(html).toContain("<table>");
     expect(html).toContain("<strong>bar chart</strong>");
