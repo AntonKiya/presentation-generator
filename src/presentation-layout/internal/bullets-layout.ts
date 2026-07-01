@@ -10,6 +10,9 @@ import { estimateTextBlock } from "./text-measure";
 
 type BulletsElement = Extract<Element, { type: "bullets" }>;
 
+const TEXT_LINE_HEIGHT_MULTIPLE = 1.36;
+const MARKER_FONT_SIZE_MULTIPLE = 1.45;
+
 export function layoutBulletsElement(input: {
   element: BulletsElement;
   box: PresentationLayoutBox;
@@ -30,13 +33,16 @@ export function layoutBulletsElement(input: {
   const desiredHeight = measurement.desiredHeight;
   const overflow = desiredHeight > box.h && box.h > 0;
   const scale = overflow ? box.h / desiredHeight : 1;
+  const textFontSize = theme.typography.bullets * scale;
+  const markerFontSize = theme.typography.bullets * MARKER_FONT_SIZE_MULTIPLE * scale;
   const effectiveGap = gap * scale;
   let y = box.y;
 
   const items: PresentationBulletItemLayout[] = element.items.map((item, index) => {
     const measuredItem = measurement.items[index];
     const itemHeight = (measuredItem?.height ?? 0) * scale;
-    const effectiveMarkerHeight = Math.min(markerHeight * scale, itemHeight);
+    const firstLineHeight = (measurement.lineHeight || itemHeight) * scale;
+    const effectiveMarkerHeight = Math.min(markerHeight * scale, firstLineHeight);
     const itemBox = roundBox({
       x: box.x,
       y,
@@ -45,7 +51,7 @@ export function layoutBulletsElement(input: {
     });
     const markerBox = roundBox({
       x: box.x,
-      y: y + Math.max(0, (itemHeight - effectiveMarkerHeight) / 2),
+      y: y + Math.max(0, (firstLineHeight - effectiveMarkerHeight) / 2),
       w: markerWidth,
       h: effectiveMarkerHeight,
     });
@@ -62,6 +68,9 @@ export function layoutBulletsElement(input: {
       index,
       text: item,
       lineCount: measuredItem?.lineCount ?? 1,
+      textFontSize: round(textFontSize),
+      textLineHeightMultiple: TEXT_LINE_HEIGHT_MULTIPLE,
+      markerFontSize: round(markerFontSize),
       itemBox,
       markerBox,
       textBox,
@@ -97,6 +106,7 @@ function measureBulletsElement(input: {
   theme: PresentationTheme;
 }): {
   textWidth: number;
+  lineHeight: number;
   desiredHeight: number;
   items: Array<{ height: number; lineCount: number }>;
 } {
@@ -110,7 +120,7 @@ function measureBulletsElement(input: {
       text: item,
       boxWidth: textWidth,
       fontSizePt: theme.typography.bullets,
-      lineHeightMultiple: 1.32,
+      lineHeightMultiple: TEXT_LINE_HEIGHT_MULTIPLE,
       minCharsPerLine: 12,
     });
 
@@ -125,6 +135,10 @@ function measureBulletsElement(input: {
 
   return {
     textWidth,
+    lineHeight:
+      items.length > 0
+        ? round(items[0].height / Math.max(1, items[0].lineCount))
+        : 0,
     desiredHeight: round(desiredHeight),
     items,
   };

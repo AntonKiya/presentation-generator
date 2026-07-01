@@ -1,5 +1,8 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { getDefaultPresentationImagePath } from "../../../presentation-assets";
+import {
+  getDefaultPresentationIconPath,
+  getDefaultPresentationImagePath,
+} from "../../../presentation-assets";
 import type {
   LayoutChild,
   LayoutContainer,
@@ -303,16 +306,21 @@ export class PptxRendererService {
     }
 
     internalLayout.items.forEach((item) => {
-      this.writer.addShape(writerSlide, "roundRect", {
-        ...item.markerBox,
-        objectName: `${element.id}_bullet_marker_${item.index + 1}`,
-        fill: { color: theme.colors.accent },
-        line: { transparency: 100, width: 0 },
-        radius: 0.03,
+      this.writer.addText(writerSlide, "→", {
+        ...textBox(item.markerBox, `${element.id}_bullet_marker_${item.index + 1}`),
+        fontFace: theme.fonts.body,
+        fontSize: item.markerFontSize,
+        color: theme.colors.accent,
+        margin: 0,
+        align: "center",
+        valign: "top",
+        fit: "shrink",
       });
       this.writer.addText(writerSlide, item.text, {
         ...textBox(item.textBox, `${element.id}_bullet_text_${item.index + 1}`),
         ...baseText(theme, "bullets"),
+        fontSize: item.textFontSize,
+        lineSpacingMultiple: item.textLineHeightMultiple,
         margin: 0,
       });
     });
@@ -332,13 +340,6 @@ export class PptxRendererService {
         objectName: element.id,
         path: imagePath,
         sizing: element.fit === "contain" ? "contain" : "cover",
-      });
-      this.writer.addShape(writerSlide, "roundRect", {
-        ...box,
-        objectName: `${element.id}_image_border`,
-        fill: { transparency: 100 },
-        line: { color: theme.colors.border, width: 0.8 },
-        radius: 0.08,
       });
       return;
     }
@@ -379,22 +380,83 @@ export class PptxRendererService {
       this.writer.addShape(writerSlide, "roundRect", {
         ...item.cardBox,
         objectName: `${element.id}_card_${item.index + 1}`,
-        fill: { color: theme.colors.card },
-        line: { color: theme.colors.border, width: 0.8 },
-        radius: 0.08,
+        fill:
+          item.variant === "metric"
+            ? { transparency: 100 }
+            : { color: theme.colors.card },
+        line: { transparency: 100, width: 0 },
+        radius: 0.04,
+      });
+      this.renderCardIcon({
+        elementId: element.id,
+        item,
+        writerSlide,
+        theme,
       });
       this.writer.addText(writerSlide, item.title, {
         ...textBox(item.titleBox, `${element.id}_card_${item.index + 1}_title`),
-        ...baseText(theme, "cardTitle"),
+        ...baseText(theme, item.variant === "metric" ? "metric" : "cardTitle"),
+        fontSize: item.titleFontSize,
+        lineSpacingMultiple: item.titleLineHeightMultiple,
         bold: true,
         margin: 0,
+        color: item.variant === "metric" ? theme.colors.text : theme.colors.text,
+        align: item.variant === "metric" ? "center" : "left",
       });
       this.writer.addText(writerSlide, item.text, {
         ...textBox(item.bodyBox, `${element.id}_card_${item.index + 1}_body`),
         ...baseText(theme, "cardBody"),
-        color: theme.colors.muted,
+        fontSize: item.bodyFontSize,
+        lineSpacingMultiple: item.bodyLineHeightMultiple,
+        color: item.variant === "metric" ? theme.colors.text : theme.colors.muted,
         margin: 0,
+        align: item.variant === "metric" ? "center" : "left",
       });
+    });
+  }
+
+  private renderCardIcon(input: {
+    elementId: string;
+    item: NonNullable<ReturnType<typeof getCardsInternalLayout>>["items"][number];
+    writerSlide: PptxWriterSlide;
+    theme: PptxExportTheme;
+  }): void {
+    const { elementId, item, writerSlide, theme } = input;
+
+    if (!item.iconBox) {
+      return;
+    }
+
+    this.writer.addShape(writerSlide, "roundRect", {
+      ...item.iconBox,
+      objectName: `${elementId}_card_${item.index + 1}_icon_background`,
+      fill: { color: theme.colors.accentSoft },
+      line: { transparency: 100, width: 0 },
+      radius: 0.2,
+    });
+
+    const iconPath = getDefaultPresentationIconPath();
+
+    if (iconPath) {
+      const iconInset = Math.min(item.iconBox.w, item.iconBox.h) * 0.22;
+
+      this.writer.addImage(writerSlide, {
+        ...insetBox(item.iconBox, iconInset),
+        objectName: `${elementId}_card_${item.index + 1}_icon`,
+        path: iconPath,
+        sizing: "contain",
+      });
+      return;
+    }
+
+    this.writer.addText(writerSlide, "✦", {
+      ...textBox(item.iconBox, `${elementId}_card_${item.index + 1}_icon`),
+      fontFace: theme.fonts.body,
+      fontSize: theme.typography.cardTitle,
+      color: theme.colors.accent,
+      align: "center",
+      valign: "middle",
+      margin: 0,
     });
   }
 

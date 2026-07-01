@@ -10,6 +10,15 @@ import { estimateTextBlock } from "./text-measure";
 
 type CardsElement = Extract<Element, { type: "cards" }>;
 
+const DEFAULT_TITLE_LINE_HEIGHT = 1.14;
+const DEFAULT_BODY_LINE_HEIGHT = 1.24;
+const METRIC_TITLE_LINE_HEIGHT = 1.05;
+const METRIC_BODY_LINE_HEIGHT = 1.2;
+const MIN_DEFAULT_TITLE_FONT_SIZE = 11.5;
+const MIN_DEFAULT_BODY_FONT_SIZE = 10;
+const MIN_METRIC_TITLE_FONT_SIZE = 25;
+const MIN_METRIC_BODY_FONT_SIZE = 10;
+
 export function layoutCardsElement(input: {
   element: CardsElement;
   box: PresentationLayoutBox;
@@ -22,6 +31,7 @@ export function layoutCardsElement(input: {
   const cardWidth = Math.max(0, (box.w - gap * (columns - 1)) / columns);
   const cardHeight = Math.max(0, (box.h - gap * (rows - 1)) / rows);
   const items = element.items.map((item, index): PresentationCardItemLayout => {
+    const variant = isMetricCardTitle(item.title) ? "metric" : "default";
     const columnIndex = index % columns;
     const rowIndex = Math.floor(index / columns);
     const cardBox = roundBox({
@@ -31,17 +41,30 @@ export function layoutCardsElement(input: {
       h: cardHeight,
     });
     const contentBox = roundBox(insetBox(cardBox, theme.spacing.cardPadding));
-    const titleMeasure = estimateTextBlock({
-      text: item.title,
-      boxWidth: contentBox.w,
-      fontSizePt: theme.typography.cardTitle,
-      lineHeightMultiple: 1.16,
-      minCharsPerLine: 8,
-    });
-    const titleHeight = round(
-      Math.min(Math.max(titleMeasure.height, 0.18), contentBox.h * 0.42),
+    const iconSize = Math.min(
+      theme.spacing.cardIconSize,
+      contentBox.w * 0.22,
+      contentBox.h * 0.24,
     );
-    const bodyY = contentBox.y + titleHeight + theme.spacing.cardTitleGap;
+    const iconBox =
+      variant === "default"
+        ? roundBox({
+            x: contentBox.x,
+            y: contentBox.y,
+            w: iconSize,
+            h: iconSize,
+          })
+        : undefined;
+    const textLayout = layoutCardText({
+      title: item.title,
+      text: item.text,
+      variant,
+      contentBox,
+      iconBox,
+      theme,
+    });
+    const bodyY =
+      textLayout.titleBox.y + textLayout.titleBox.h + theme.spacing.cardTitleGap;
     const bodyBox = roundBox({
       x: contentBox.x,
       y: bodyY,
@@ -51,25 +74,20 @@ export function layoutCardsElement(input: {
 
     return {
       index,
+      variant,
       title: item.title,
       text: item.text,
       cardBox,
       contentBox,
-      titleBox: roundBox({
-        x: contentBox.x,
-        y: contentBox.y,
-        w: contentBox.w,
-        h: titleHeight,
-      }),
+      iconBox,
+      titleBox: textLayout.titleBox,
       bodyBox,
-      titleLineCount: titleMeasure.lineCount,
-      bodyLineCount: estimateTextBlock({
-        text: item.text,
-        boxWidth: bodyBox.w,
-        fontSizePt: theme.typography.cardBody,
-        lineHeightMultiple: 1.24,
-        minCharsPerLine: 10,
-      }).lineCount,
+      titleLineCount: textLayout.titleLineCount,
+      bodyLineCount: textLayout.bodyLineCount,
+      titleFontSize: textLayout.titleFontSize,
+      titleLineHeightMultiple: textLayout.titleLineHeightMultiple,
+      bodyFontSize: textLayout.bodyFontSize,
+      bodyLineHeightMultiple: textLayout.bodyLineHeightMultiple,
     };
   });
 
@@ -101,23 +119,32 @@ export function estimateCardsDesiredHeight(input: {
     return Math.max(
       0,
       ...rowItems.map((item) => {
+        const variant = isMetricCardTitle(item.title) ? "metric" : "default";
+        const iconHeight =
+          variant === "default"
+            ? Math.min(theme.spacing.cardIconSize, theme.spacing.cardIconSize) +
+              theme.spacing.cardIconGap
+            : 0;
         const title = estimateTextBlock({
           text: item.title,
           boxWidth: contentWidth,
-          fontSizePt: theme.typography.cardTitle,
-          lineHeightMultiple: 1.16,
-          minCharsPerLine: 8,
+          fontSizePt:
+            variant === "metric" ? theme.typography.metric : theme.typography.cardTitle,
+          lineHeightMultiple:
+            variant === "metric" ? METRIC_TITLE_LINE_HEIGHT : DEFAULT_TITLE_LINE_HEIGHT,
+          minCharsPerLine: variant === "metric" ? 4 : 8,
         });
         const body = estimateTextBlock({
           text: item.text,
           boxWidth: contentWidth,
           fontSizePt: theme.typography.cardBody,
-          lineHeightMultiple: 1.24,
+          lineHeightMultiple: DEFAULT_BODY_LINE_HEIGHT,
           minCharsPerLine: 10,
         });
 
         return (
           theme.spacing.cardPadding * 2 +
+          iconHeight +
           title.height +
           theme.spacing.cardTitleGap +
           body.height
@@ -130,6 +157,146 @@ export function estimateCardsDesiredHeight(input: {
     rowHeights.reduce((sum, height) => sum + height, 0) +
       gap * Math.max(0, rows - 1),
   );
+}
+
+function layoutCardText(input: {
+  title: string;
+  text: string;
+  variant: PresentationCardItemLayout["variant"];
+  contentBox: PresentationLayoutBox;
+  iconBox?: PresentationLayoutBox;
+  theme: PresentationTheme;
+}): {
+  titleBox: PresentationLayoutBox;
+  titleLineCount: number;
+  bodyLineCount: number;
+  titleFontSize: number;
+  titleLineHeightMultiple: number;
+  bodyFontSize: number;
+  bodyLineHeightMultiple: number;
+} {
+  const { title, text, variant, contentBox, iconBox, theme } = input;
+  const titleLineHeightMultiple =
+    variant === "metric" ? METRIC_TITLE_LINE_HEIGHT : DEFAULT_TITLE_LINE_HEIGHT;
+  const bodyLineHeightMultiple =
+    variant === "metric" ? METRIC_BODY_LINE_HEIGHT : DEFAULT_BODY_LINE_HEIGHT;
+  const minTitleFontSize =
+    variant === "metric" ? MIN_METRIC_TITLE_FONT_SIZE : MIN_DEFAULT_TITLE_FONT_SIZE;
+  const minBodyFontSize =
+    variant === "metric" ? MIN_METRIC_BODY_FONT_SIZE : MIN_DEFAULT_BODY_FONT_SIZE;
+  const titleY = iconBox
+    ? iconBox.y + iconBox.h + theme.spacing.cardIconGap
+    : contentBox.y;
+  const titleGap = theme.spacing.cardTitleGap;
+  const textHeight = Math.max(0, contentBox.y + contentBox.h - titleY);
+  const targetTitleFontSize: number =
+    variant === "metric" ? theme.typography.metric : theme.typography.cardTitle;
+  const targetBodyFontSize: number = theme.typography.cardBody;
+  let titleFontSize: number = targetTitleFontSize;
+  let bodyFontSize: number = targetBodyFontSize;
+  let titleMeasure = measureCardTitle({
+    title,
+    variant,
+    width: contentBox.w,
+    fontSize: titleFontSize,
+    lineHeightMultiple: titleLineHeightMultiple,
+  });
+  let bodyMeasure = measureCardBody({
+    text,
+    width: contentBox.w,
+    fontSize: bodyFontSize,
+    lineHeightMultiple: bodyLineHeightMultiple,
+  });
+
+  for (let index = 0; index < 8; index += 1) {
+    const desiredHeight = titleMeasure.height + titleGap + bodyMeasure.height;
+
+    if (desiredHeight <= textHeight || textHeight <= 0) {
+      break;
+    }
+
+    const scale = Math.max(
+      0.72,
+      Math.min(0.96, (textHeight / desiredHeight) * 0.98),
+    );
+    const nextTitleFontSize = Math.max(minTitleFontSize, titleFontSize * scale);
+    const nextBodyFontSize = Math.max(minBodyFontSize, bodyFontSize * scale);
+
+    if (
+      nextTitleFontSize === titleFontSize &&
+      nextBodyFontSize === bodyFontSize
+    ) {
+      break;
+    }
+
+    titleFontSize = nextTitleFontSize;
+    bodyFontSize = nextBodyFontSize;
+    titleMeasure = measureCardTitle({
+      title,
+      variant,
+      width: contentBox.w,
+      fontSize: titleFontSize,
+      lineHeightMultiple: titleLineHeightMultiple,
+    });
+    bodyMeasure = measureCardBody({
+      text,
+      width: contentBox.w,
+      fontSize: bodyFontSize,
+      lineHeightMultiple: bodyLineHeightMultiple,
+    });
+  }
+
+  const maxTitleHeight =
+    variant === "metric"
+      ? Math.max(0, textHeight * 0.62)
+      : Math.max(0, textHeight * 0.48);
+  const titleHeight = round(Math.min(titleMeasure.height, maxTitleHeight));
+
+  return {
+    titleBox: roundBox({
+      x: contentBox.x,
+      y: titleY,
+      w: contentBox.w,
+      h: titleHeight,
+    }),
+    titleLineCount: titleMeasure.lineCount,
+    bodyLineCount: bodyMeasure.lineCount,
+    titleFontSize: round(titleFontSize),
+    titleLineHeightMultiple,
+    bodyFontSize: round(bodyFontSize),
+    bodyLineHeightMultiple,
+  };
+}
+
+function measureCardTitle(input: {
+  title: string;
+  variant: PresentationCardItemLayout["variant"];
+  width: number;
+  fontSize: number;
+  lineHeightMultiple: number;
+}): { height: number; lineCount: number } {
+  return estimateTextBlock({
+    text: input.title,
+    boxWidth: input.width,
+    fontSizePt: input.fontSize,
+    lineHeightMultiple: input.lineHeightMultiple,
+    minCharsPerLine: input.variant === "metric" ? 4 : 8,
+  });
+}
+
+function measureCardBody(input: {
+  text: string;
+  width: number;
+  fontSize: number;
+  lineHeightMultiple: number;
+}): { height: number; lineCount: number } {
+  return estimateTextBlock({
+    text: input.text,
+    boxWidth: input.width,
+    fontSizePt: input.fontSize,
+    lineHeightMultiple: input.lineHeightMultiple,
+    minCharsPerLine: 10,
+  });
 }
 
 export function getCardsInternalLayout(
@@ -148,6 +315,12 @@ export function resolveCardsColumns(itemsCount: number): number {
   }
 
   return 3;
+}
+
+function isMetricCardTitle(title: string): boolean {
+  return /(?:^|\s)[+-]?\d+(?:[.,]\d+)?\s*(?:%|x|×|млн|млрд|трлн|k|m|b)?(?:\s|$)/i.test(
+    title,
+  );
 }
 
 function insetBox(

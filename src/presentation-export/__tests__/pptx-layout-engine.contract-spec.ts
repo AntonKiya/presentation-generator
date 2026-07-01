@@ -10,6 +10,7 @@ import {
   PptxLayoutEngineService,
   resolveGridColumns,
 } from "../pptx";
+import { PRESENTATION_DEFAULT_THEME } from "../../presentation-theme";
 import { PptxExportPreflightService } from "../pptx/preflight";
 import { PptxRendererService } from "../pptx/render";
 import { PptxGenJsAdapter } from "../pptx/writer";
@@ -165,6 +166,9 @@ describe("PPTX layout engine", () => {
     items.forEach((item) => {
       expect(item.textBox.x).toBeGreaterThan(item.markerBox.x);
       expect(item.textBox.h).toBe(item.itemBox.h);
+      expect(item.markerBox.y).toBeLessThanOrEqual(item.textBox.y + 0.02);
+      expect(item.textFontSize).toBeGreaterThan(0);
+      expect(item.markerFontSize).toBeGreaterThan(item.textFontSize);
     });
     expect(internalLayout?.usedHeight).toBeLessThanOrEqual(
       bulletsNode?.box.h ?? Number.POSITIVE_INFINITY,
@@ -221,6 +225,66 @@ describe("PPTX layout engine", () => {
       expect(item.bodyBox.y).toBeGreaterThan(item.titleBox.y);
       expect(item.bodyBox.y + item.bodyBox.h).toBeLessThanOrEqual(
         item.cardBox.y + item.cardBox.h,
+      );
+      expect(item.titleFontSize).toBeGreaterThan(0);
+      expect(item.bodyFontSize).toBeGreaterThan(0);
+    });
+  });
+
+  it("fits long card text by reducing card typography inside the fixed card box", () => {
+    const engine = new PptxLayoutEngineService();
+    const slide = createContentSlide();
+
+    slide.root_container = {
+      type: "stack",
+      gap: 18,
+      children: [
+        {
+          type: "stack",
+          slot: "title",
+          accepts: ["title"],
+          required: true,
+          children: [{ id: "long_cards_title", type: "title", text: "Long cards" }],
+        },
+        {
+          id: "long_cards",
+          type: "cards",
+          items: [
+            {
+              title: "A deliberately verbose card title",
+              text: "This body text is intentionally long so the shared layout engine has to fit typography inside the card instead of letting renderer-specific overflow leak outside the panel.",
+            },
+            {
+              title: "Second verbose card title",
+              text: "Another long body verifies that title and body areas stay inside the same card bounds and keep deterministic geometry for HTML and PPTX.",
+            },
+            {
+              title: "Third verbose card title",
+              text: "The final card repeats the same pressure with enough content to force the card typography fitting path.",
+            },
+          ],
+        },
+      ],
+    };
+
+    const layout = engine.layoutSlide(slide);
+    const cardsNode = layout.root.children?.[1];
+    const internalLayout =
+      cardsNode?.internal?.type === "cards" ? cardsNode.internal : undefined;
+
+    expect(internalLayout).toBeDefined();
+    internalLayout?.items.forEach((item) => {
+      expect(item.titleBox.y + item.titleBox.h).toBeLessThanOrEqual(
+        item.cardBox.y + item.cardBox.h,
+      );
+      expect(item.bodyBox.y + item.bodyBox.h).toBeLessThanOrEqual(
+        item.cardBox.y + item.cardBox.h,
+      );
+      expect(item.titleFontSize).toBeLessThanOrEqual(
+        PRESENTATION_DEFAULT_THEME.typography.cardTitle,
+      );
+      expect(item.bodyFontSize).toBeLessThanOrEqual(
+        PRESENTATION_DEFAULT_THEME.typography.cardBody,
       );
     });
   });

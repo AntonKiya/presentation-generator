@@ -54,6 +54,9 @@ export type PresentationBulletItemLayout = {
   index: number;
   text: string;
   lineCount: number;
+  textFontSize: number;
+  textLineHeightMultiple: number;
+  markerFontSize: number;
   itemBox: PresentationLayoutBox;
   markerBox: PresentationLayoutBox;
   textBox: PresentationLayoutBox;
@@ -68,14 +71,20 @@ export type PresentationCardsInternalLayout = {
 
 export type PresentationCardItemLayout = {
   index: number;
+  variant: "default" | "metric";
   title: string;
   text: string;
   cardBox: PresentationLayoutBox;
   contentBox: PresentationLayoutBox;
+  iconBox?: PresentationLayoutBox;
   titleBox: PresentationLayoutBox;
   bodyBox: PresentationLayoutBox;
   titleLineCount: number;
   bodyLineCount: number;
+  titleFontSize: number;
+  titleLineHeightMultiple: number;
+  bodyFontSize: number;
+  bodyLineHeightMultiple: number;
 };
 
 export type PresentationSlideLayout = {

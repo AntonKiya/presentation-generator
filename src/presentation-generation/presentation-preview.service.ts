@@ -1,5 +1,8 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { getDefaultPresentationImageDataUrl } from "../presentation-assets";
+import {
+  getDefaultPresentationIconDataUrl,
+  getDefaultPresentationImageDataUrl,
+} from "../presentation-assets";
 import {
   getBulletsInternalLayout,
   getCardsInternalLayout,
@@ -178,15 +181,24 @@ export class PresentationPreviewService {
     return `<div class="element cards" style="${boxStyle}">${internalLayout.items
       .map(
         (item) =>
-          `<article class="card" style="${boxToCssWithin(
+          `<article class="card card-${item.variant}" style="${boxToCssWithin(
             item.cardBox,
             layoutNode.box,
-          )}"><h3 style="${boxToCssWithin(
+          )}">${renderCardIcon(item, layoutNode)}<h3 style="${boxToCssWithin(
             item.titleBox,
             item.cardBox,
+          )};${textStyleToCss(
+            item.titleFontSize,
+            item.titleLineHeightMultiple,
           )}">${escapeHtml(
             item.title,
-          )}</h3><p style="${boxToCssWithin(item.bodyBox, item.cardBox)}">${escapeHtml(
+          )}</h3><p style="${boxToCssWithin(
+            item.bodyBox,
+            item.cardBox,
+          )};${textStyleToCss(
+            item.bodyFontSize,
+            item.bodyLineHeightMultiple,
+          )}">${escapeHtml(
             item.text,
           )}</p></article>`,
       )
@@ -220,9 +232,14 @@ export class PresentationPreviewService {
         )}"><span class="bullet-marker" style="${boxToCssWithin(
           item.markerBox,
           item.itemBox,
-        )}"></span><span class="bullet-text" style="${boxToCssWithin(
+        )};font-size:${ptToPx(
+          item.markerFontSize,
+        )}px">→</span><span class="bullet-text" style="${boxToCssWithin(
           item.textBox,
           item.itemBox,
+        )};${textStyleToCss(
+          item.textFontSize,
+          item.textLineHeightMultiple,
         )}">${escapeHtml(item.text)}</span></div>`,
       )
       .join("")}</div>`;
@@ -314,6 +331,25 @@ function renderTitleAccentLine(
   )}"></div>`;
 }
 
+function renderCardIcon(
+  item: NonNullable<ReturnType<typeof getCardsInternalLayout>>["items"][number],
+  layoutNode: PresentationLayoutNode,
+): string {
+  if (!item.iconBox) {
+    return "";
+  }
+
+  const iconDataUrl = getDefaultPresentationIconDataUrl();
+  const iconContent = iconDataUrl
+    ? `<img src="${iconDataUrl}" alt="" />`
+    : "<span>✦</span>";
+
+  return `<span class="card-icon" style="${boxToCssWithin(
+    item.iconBox,
+    item.cardBox,
+  )}">${iconContent}</span>`;
+}
+
 function boxToCss(
   box: PresentationLayoutBox,
   slideBox: PresentationLayoutBox,
@@ -344,6 +380,12 @@ function boxToCssWithin(
       h: parentBox.h,
     },
   );
+}
+
+function textStyleToCss(fontSizePt: number, lineHeightMultiple: number): string {
+  return `font-size:${ptToPx(fontSizePt)}px;line-height:${roundCss(
+    lineHeightMultiple,
+  )}`;
 }
 
 function toPercent(value: number, total: number): number {
@@ -423,9 +465,10 @@ figure {
 h1 {
   font-family: ${JSON.stringify(theme.fonts.heading)}, ${JSON.stringify(theme.fonts.body)}, ui-sans-serif, system-ui, sans-serif;
   font-size: ${ptToPx(theme.typography.title)}px;
-  font-weight: 700;
-  line-height: 1.06;
+  font-weight: 500;
+  line-height: 1.03;
   letter-spacing: 0;
+  color: ${cssColor(theme.colors.accent)};
 }
 h2 {
   font-size: ${ptToPx(theme.typography.subtitle)}px;
@@ -452,6 +495,7 @@ th {
   position: absolute;
   border-radius: 999px;
   background: ${cssColor(theme.colors.accent)};
+  opacity: 0.85;
 }
 .element-bullets {
   position: absolute;
@@ -463,17 +507,22 @@ th {
 }
 .bullet-marker {
   position: absolute;
-  display: block;
-  border-radius: 999px;
-  background: ${cssColor(theme.colors.accent)};
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  color: ${cssColor(theme.colors.accent)};
+  font-size: ${ptToPx(theme.typography.bullets * 1.45)}px;
+  line-height: 0.9;
+  font-weight: 400;
 }
 .bullet-text {
   position: absolute;
   display: block;
   min-width: 0;
   overflow: hidden;
+  overflow-wrap: break-word;
   font-size: ${ptToPx(theme.typography.bullets)}px;
-  line-height: 1.32;
+  line-height: 1.36;
   color: ${cssColor(theme.colors.text)};
   letter-spacing: 0;
 }
@@ -498,20 +547,57 @@ th {
 .card {
   position: absolute;
   overflow: hidden;
-  border: 1px solid ${cssColor(theme.colors.border)};
-  border-radius: 8px;
+  border: 0;
+  border-radius: 4px;
   background: ${cssColor(theme.colors.card)};
+}
+.card-icon {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: ${cssColor(theme.colors.accentSoft)};
+}
+.card-icon img {
+  width: 56%;
+  height: 56%;
+  object-fit: contain;
+  display: block;
+  opacity: 0.8;
+}
+.card-icon span {
+  font-size: ${ptToPx(theme.typography.cardTitle)}px;
+  line-height: 1;
+  color: ${cssColor(theme.colors.accent)};
 }
 .card h3,
 .card p {
   position: absolute;
   margin: 0;
   overflow: hidden;
+  overflow-wrap: break-word;
+}
+.card h3 {
+  color: ${cssColor(theme.colors.text)};
 }
 .card p {
   font-size: ${ptToPx(theme.typography.cardBody)}px;
-  line-height: 1.26;
+  line-height: 1.3;
   color: ${cssColor(theme.colors.muted)};
+}
+.card-metric {
+  background: transparent;
+}
+.card-metric h3 {
+  font-family: ${JSON.stringify(theme.fonts.body)}, ui-sans-serif, system-ui, sans-serif;
+  font-size: ${ptToPx(theme.typography.metric)}px;
+  line-height: 0.95;
+  font-weight: 700;
+  color: ${cssColor(theme.colors.text)};
+}
+.card-metric p {
+  color: ${cssColor(theme.colors.text)};
 }
 .cards-fallback {
   display: grid;
@@ -562,9 +648,9 @@ th {
 .image-frame {
   margin: 0;
   overflow: hidden;
-  border: 1px solid ${cssColor(theme.colors.border)};
-  border-radius: 8px;
-  background: ${cssColor(theme.colors.surface)};
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 .image-frame img {
   width: 100%;
