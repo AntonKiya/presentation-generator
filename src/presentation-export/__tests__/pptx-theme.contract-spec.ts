@@ -10,8 +10,9 @@ describe("PPTX export theme", () => {
 
     expect(theme).toBe(PPTX_DEFAULT_EXPORT_THEME);
     expect(theme.id).toBe("default");
-    expect(theme.colors.background).toBe("FFFFFF");
-    expect(theme.colors.text).toBe("111827");
+    expect(theme.colors.background).toBe("F7F3EC");
+    expect(theme.colors.text).toBe("1F2320");
+    expect(theme.colors.accent).toBe("8F3D2E");
     expect(theme.fonts.body).toBeTruthy();
     expect(theme.typography.title).toBeGreaterThan(theme.typography.body);
     expect(theme.spacing.textMargin).toBeGreaterThan(0);

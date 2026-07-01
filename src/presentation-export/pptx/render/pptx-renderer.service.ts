@@ -1,4 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { getDefaultPresentationImagePath } from "../../../presentation-assets";
 import type {
   LayoutChild,
   LayoutContainer,
@@ -9,6 +10,10 @@ import type {
 } from "../../../presentation-generation/schemas/element-schema";
 import type { Slide } from "../../../presentation-generation/schemas/slide-schema";
 import {
+  getBulletsInternalLayout,
+  getCardsInternalLayout,
+} from "../../../presentation-layout";
+import {
   resolvePptxExportOptions,
   type PptxExportIssue,
 } from "../pptx-export-contract";
@@ -17,7 +22,6 @@ import type {
   PptxLayoutNode,
   PptxSlideLayout,
 } from "../layout";
-import { resolveCardsColumns } from "../layout";
 import {
   PPTX_WRITER_ADAPTER,
   type PptxWriterAdapter,
@@ -146,6 +150,8 @@ export class PptxRendererService {
       });
     }
 
+    this.renderTitleAccentLine(container, layoutNode, writerSlide, theme);
+
     children.forEach((child, index) => {
       const childLayout = layoutChildren[index];
 
@@ -198,7 +204,7 @@ export class PptxRendererService {
     try {
       this.renderElement({
         element,
-        box: layoutNode.box,
+        layoutNode,
         writerSlide,
         theme,
       });
@@ -216,11 +222,12 @@ export class PptxRendererService {
 
   private renderElement(input: {
     element: Element;
-    box: PptxLayoutBox;
+    layoutNode: PptxLayoutNode;
     writerSlide: PptxWriterSlide;
     theme: PptxExportTheme;
   }): void {
-    const { element, box, writerSlide, theme } = input;
+    const { element, layoutNode, writerSlide, theme } = input;
+    const { box } = layoutNode;
 
     switch (element.type) {
       case "title":
@@ -244,18 +251,13 @@ export class PptxRendererService {
         });
         return;
       case "bullets":
-        this.writer.addText(writerSlide, element.items.join("\n"), {
-          ...textBox(box, element.id),
-          ...baseText(theme, "bullets"),
-          bullet: true,
-          lineSpacingMultiple: 1.1,
-        });
+        this.renderBullets(element, layoutNode, writerSlide, theme);
         return;
       case "image":
         this.renderImagePlaceholder(element, box, writerSlide, theme);
         return;
       case "cards":
-        this.renderCards(element, box, writerSlide, theme);
+        this.renderCards(element, layoutNode, writerSlide, theme);
         return;
       case "table":
         this.renderTable(element, box, writerSlide, theme);
@@ -266,22 +268,91 @@ export class PptxRendererService {
     }
   }
 
+  private renderTitleAccentLine(
+    container: LayoutContainer,
+    layoutNode: PptxLayoutNode,
+    writerSlide: PptxWriterSlide,
+    theme: PptxExportTheme,
+  ): void {
+    if (container.slot !== "title") {
+      return;
+    }
+
+    this.writer.addShape(writerSlide, "roundRect", {
+      x: layoutNode.box.x,
+      y: layoutNode.box.y + layoutNode.box.h + theme.spacing.titleAccentGap,
+      w: Math.min(theme.spacing.titleAccentWidth, layoutNode.box.w),
+      h: theme.spacing.titleAccentHeight,
+      objectName: `${layoutNode.nodeId}_title_accent`,
+      fill: { color: theme.colors.accent },
+      line: { transparency: 100, width: 0 },
+      radius: 0.03,
+    });
+  }
+
+  private renderBullets(
+    element: Extract<Element, { type: "bullets" }>,
+    layoutNode: PptxLayoutNode,
+    writerSlide: PptxWriterSlide,
+    theme: PptxExportTheme,
+  ): void {
+    const internalLayout = getBulletsInternalLayout(layoutNode);
+
+    if (!internalLayout || element.items.length === 0) {
+      return;
+    }
+
+    internalLayout.items.forEach((item) => {
+      this.writer.addShape(writerSlide, "roundRect", {
+        ...item.markerBox,
+        objectName: `${element.id}_bullet_marker_${item.index + 1}`,
+        fill: { color: theme.colors.accent },
+        line: { transparency: 100, width: 0 },
+        radius: 0.03,
+      });
+      this.writer.addText(writerSlide, item.text, {
+        ...textBox(item.textBox, `${element.id}_bullet_text_${item.index + 1}`),
+        ...baseText(theme, "bullets"),
+        margin: 0,
+      });
+    });
+  }
+
   private renderImagePlaceholder(
     element: Extract<Element, { type: "image" }>,
     box: PptxLayoutBox,
     writerSlide: PptxWriterSlide,
     theme: PptxExportTheme,
   ): void {
+    const imagePath = getDefaultPresentationImagePath();
+
+    if (imagePath) {
+      this.writer.addImage(writerSlide, {
+        ...box,
+        objectName: element.id,
+        path: imagePath,
+        sizing: element.fit === "contain" ? "contain" : "cover",
+      });
+      this.writer.addShape(writerSlide, "roundRect", {
+        ...box,
+        objectName: `${element.id}_image_border`,
+        fill: { transparency: 100 },
+        line: { color: theme.colors.border, width: 0.8 },
+        radius: 0.08,
+      });
+      return;
+    }
+
     this.writer.addShape(writerSlide, "roundRect", {
       ...box,
       objectName: `${element.id}_placeholder_shape`,
       fill: { color: theme.colors.surface },
-      line: { color: theme.colors.border, width: 1, dash: "dash" },
+      line: { color: theme.colors.border, width: 1 },
       radius: 0.12,
     });
     this.writer.addText(
       writerSlide,
-      `${element.alt}\n${element.asset_id}`,
+      element.alt,
       {
         ...textBox(insetBox(box, 0.12), element.id),
         ...baseText(theme, "placeholder"),
@@ -294,57 +365,35 @@ export class PptxRendererService {
 
   private renderCards(
     element: Extract<Element, { type: "cards" }>,
-    box: PptxLayoutBox,
+    layoutNode: PptxLayoutNode,
     writerSlide: PptxWriterSlide,
     theme: PptxExportTheme,
   ): void {
-    const columns = resolveCardsColumns(element.items.length);
-    const rows = Math.ceil(element.items.length / columns);
-    const gap = theme.spacing.cardGap;
-    const cardWidth = Math.max(0, (box.w - gap * (columns - 1)) / columns);
-    const cardHeight = Math.max(0, (box.h - gap * (rows - 1)) / rows);
+    const internalLayout = getCardsInternalLayout(layoutNode);
 
-    element.items.forEach((item, index) => {
-      const columnIndex = index % columns;
-      const rowIndex = Math.floor(index / columns);
-      const cardBox = {
-        x: box.x + columnIndex * (cardWidth + gap),
-        y: box.y + rowIndex * (cardHeight + gap),
-        w: cardWidth,
-        h: cardHeight,
-      };
-      const innerBox = insetBox(cardBox, theme.spacing.cardPadding);
+    if (!internalLayout || element.items.length === 0) {
+      return;
+    }
 
+    internalLayout.items.forEach((item) => {
       this.writer.addShape(writerSlide, "roundRect", {
-        ...cardBox,
-        objectName: `${element.id}_card_${index + 1}`,
+        ...item.cardBox,
+        objectName: `${element.id}_card_${item.index + 1}`,
         fill: { color: theme.colors.card },
         line: { color: theme.colors.border, width: 0.8 },
         radius: 0.08,
       });
       this.writer.addText(writerSlide, item.title, {
-        ...textBox(
-          {
-            ...innerBox,
-            h: Math.min(0.35, innerBox.h),
-          },
-          `${element.id}_card_${index + 1}_title`,
-        ),
+        ...textBox(item.titleBox, `${element.id}_card_${item.index + 1}_title`),
         ...baseText(theme, "cardTitle"),
         bold: true,
+        margin: 0,
       });
       this.writer.addText(writerSlide, item.text, {
-        ...textBox(
-          {
-            x: innerBox.x,
-            y: innerBox.y + Math.min(0.4, innerBox.h),
-            w: innerBox.w,
-            h: Math.max(0.1, innerBox.h - 0.4),
-          },
-          `${element.id}_card_${index + 1}_body`,
-        ),
+        ...textBox(item.bodyBox, `${element.id}_card_${item.index + 1}_body`),
         ...baseText(theme, "cardBody"),
         color: theme.colors.muted,
+        margin: 0,
       });
     });
   }

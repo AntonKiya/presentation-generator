@@ -3,6 +3,7 @@ import type {
   PptxWriterChartSeries,
   PptxWriterChartType,
   PptxWriterCreateOptions,
+  PptxWriterImageOptions,
   PptxWriterPresentation,
   PptxWriterShapeOptions,
   PptxWriterShapeType,
@@ -34,6 +35,8 @@ export interface PptxWriterAdapter {
     shape: PptxWriterShapeType,
     options: PptxWriterShapeOptions,
   ): void;
+
+  addImage(slide: PptxWriterSlide, options: PptxWriterImageOptions): void;
 
   addTable(
     slide: PptxWriterSlide,

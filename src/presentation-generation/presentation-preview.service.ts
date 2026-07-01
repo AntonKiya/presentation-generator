@@ -1,9 +1,10 @@
 import { Injectable, Logger } from "@nestjs/common";
+import { getDefaultPresentationImageDataUrl } from "../presentation-assets";
 import {
-  layoutUnitsToPreviewPx,
+  getBulletsInternalLayout,
+  getCardsInternalLayout,
   PRESENTATION_LAYOUT_REFERENCE,
   PresentationLayoutEngineService,
-  resolveCardsColumns,
   type PresentationLayoutBox,
   type PresentationLayoutNode,
   type PresentationSlideLayout,
@@ -80,7 +81,7 @@ export class PresentationPreviewService {
     slideLayout: PresentationSlideLayout,
   ): string {
     if (isElement(child)) {
-      return this.renderElement(child, layoutNode.box, slideLayout);
+      return this.renderElement(child, layoutNode, slideLayout);
     }
 
     return this.renderContainer(child, layoutNode, slideLayout);
@@ -107,14 +108,15 @@ export class PresentationPreviewService {
 
     return `<div class="container container-${container.type}" data-node-id="${escapeHtml(
       layoutNode.nodeId,
-    )}">${content}</div>`;
+    )}">${content}${renderTitleAccentLine(container, layoutNode, slideLayout)}</div>`;
   }
 
   private renderElement(
     element: Element,
-    box: PresentationLayoutBox,
+    layoutNode: PresentationLayoutNode,
     slideLayout: PresentationSlideLayout,
   ): string {
+    const box = layoutNode.box;
     const style = boxToCss(box, slideLayout.slideBox);
 
     switch (element.type) {
@@ -131,15 +133,11 @@ export class PresentationPreviewService {
           element.text,
         )}</p></div>`;
       case "bullets":
-        return `<div class="element element-bullets" style="${style}"><ul>${element.items
-          .map((item) => `<li>${escapeHtml(item)}</li>`)
-          .join("")}</ul></div>`;
+        return this.renderBullets(element, layoutNode, slideLayout);
       case "cards":
-        return this.renderCards(element, style, slideLayout);
+        return this.renderCards(element, layoutNode, slideLayout);
       case "image":
-        return `<figure class="element image-placeholder" style="${style}"><div>${escapeHtml(
-          element.alt,
-        )}</div><figcaption>${escapeHtml(element.asset_id)}</figcaption></figure>`;
+        return this.renderImage(element, style);
       case "table":
         return `<div class="element table-wrapper" style="${style}"><table><thead><tr>${element.columns
           .map((column) => `<th>${escapeHtml(column)}</th>`)
@@ -160,35 +158,91 @@ export class PresentationPreviewService {
 
   private renderCards(
     element: Extract<Element, { type: "cards" }>,
-    boxStyle: string,
+    layoutNode: PresentationLayoutNode,
     slideLayout: PresentationSlideLayout,
   ): string {
-    const columns = resolveCardsColumns(element.items.length);
-    const rows = Math.ceil(element.items.length / columns);
-    const gap = layoutUnitsToPreviewPx(
-      PRESENTATION_DEFAULT_THEME.spacing.cardGap,
-      slideLayout.slideBox.w,
-    );
-    const padding = layoutUnitsToPreviewPx(
-      PRESENTATION_DEFAULT_THEME.spacing.cardPadding,
-      slideLayout.slideBox.w,
-    );
-    const style = [
-      boxStyle,
-      `--card-columns:${columns}`,
-      `--card-rows:${rows}`,
-      `--card-gap:${roundCss(gap)}px`,
-      `--card-padding:${roundCss(padding)}px`,
-    ].join(";");
+    const internalLayout = getCardsInternalLayout(layoutNode);
+    const boxStyle = boxToCss(layoutNode.box, slideLayout.slideBox);
 
-    return `<div class="element cards" style="${style}">${element.items
+    if (!internalLayout) {
+      return `<div class="element cards cards-fallback" style="${boxStyle}">${element.items
+        .map(
+          (item) =>
+            `<article class="card"><h3>${escapeHtml(
+              item.title,
+            )}</h3><p>${escapeHtml(item.text)}</p></article>`,
+        )
+        .join("")}</div>`;
+    }
+
+    return `<div class="element cards" style="${boxStyle}">${internalLayout.items
       .map(
         (item) =>
-          `<article class="card"><h3>${escapeHtml(
+          `<article class="card" style="${boxToCssWithin(
+            item.cardBox,
+            layoutNode.box,
+          )}"><h3 style="${boxToCssWithin(
+            item.titleBox,
+            item.cardBox,
+          )}">${escapeHtml(
             item.title,
-          )}</h3><p>${escapeHtml(item.text)}</p></article>`,
+          )}</h3><p style="${boxToCssWithin(item.bodyBox, item.cardBox)}">${escapeHtml(
+            item.text,
+          )}</p></article>`,
       )
       .join("")}</div>`;
+  }
+
+  private renderBullets(
+    element: Extract<Element, { type: "bullets" }>,
+    layoutNode: PresentationLayoutNode,
+    slideLayout: PresentationSlideLayout,
+  ): string {
+    const internalLayout = getBulletsInternalLayout(layoutNode);
+    const boxStyle = boxToCss(layoutNode.box, slideLayout.slideBox);
+
+    if (!internalLayout) {
+      return `<div class="element element-bullets bullet-list-fallback" style="${boxStyle}">${element.items
+        .map(
+          (item) =>
+            `<div class="bullet-item"><span class="bullet-marker"></span><span class="bullet-text">${escapeHtml(
+              item,
+            )}</span></div>`,
+        )
+        .join("")}</div>`;
+    }
+
+    return `<div class="element element-bullets" style="${boxStyle}">${internalLayout.items
+      .map(
+        (item) => `<div class="bullet-item" style="${boxToCssWithin(
+          item.itemBox,
+          layoutNode.box,
+        )}"><span class="bullet-marker" style="${boxToCssWithin(
+          item.markerBox,
+          item.itemBox,
+        )}"></span><span class="bullet-text" style="${boxToCssWithin(
+          item.textBox,
+          item.itemBox,
+        )}">${escapeHtml(item.text)}</span></div>`,
+      )
+      .join("")}</div>`;
+  }
+
+  private renderImage(
+    element: Extract<Element, { type: "image" }>,
+    style: string,
+  ): string {
+    const imageDataUrl = getDefaultPresentationImageDataUrl();
+
+    if (imageDataUrl) {
+      return `<figure class="element image-frame" style="${style}"><img src="${imageDataUrl}" alt="${escapeHtml(
+        element.alt,
+      )}" /></figure>`;
+    }
+
+    return `<figure class="element image-placeholder" style="${style}"><div>${escapeHtml(
+      element.alt,
+    )}</div></figure>`;
   }
 }
 
@@ -237,6 +291,29 @@ function renderChart(element: Extract<Element, { type: "chart" }>): string {
     .join("")}`;
 }
 
+function renderTitleAccentLine(
+  container: LayoutContainer,
+  layoutNode: PresentationLayoutNode,
+  slideLayout: PresentationSlideLayout,
+): string {
+  if (container.slot !== "title") {
+    return "";
+  }
+
+  const { spacing } = PRESENTATION_DEFAULT_THEME;
+  const accentBox = {
+    x: layoutNode.box.x,
+    y: layoutNode.box.y + layoutNode.box.h + spacing.titleAccentGap,
+    w: Math.min(spacing.titleAccentWidth, layoutNode.box.w),
+    h: spacing.titleAccentHeight,
+  };
+
+  return `<div class="title-accent-line" style="${boxToCss(
+    accentBox,
+    slideLayout.slideBox,
+  )}"></div>`;
+}
+
 function boxToCss(
   box: PresentationLayoutBox,
   slideBox: PresentationLayoutBox,
@@ -247,6 +324,26 @@ function boxToCss(
     `width:${toPercent(box.w, slideBox.w)}%`,
     `height:${toPercent(box.h, slideBox.h)}%`,
   ].join(";");
+}
+
+function boxToCssWithin(
+  box: PresentationLayoutBox,
+  parentBox: PresentationLayoutBox,
+): string {
+  return boxToCss(
+    {
+      x: box.x - parentBox.x,
+      y: box.y - parentBox.y,
+      w: box.w,
+      h: box.h,
+    },
+    {
+      x: 0,
+      y: 0,
+      w: parentBox.w,
+      h: parentBox.h,
+    },
+  );
 }
 
 function toPercent(value: number, total: number): number {
@@ -345,43 +442,89 @@ h3 {
   letter-spacing: 0;
 }
 p,
-li,
 td,
 th {
   font-size: ${ptToPx(theme.typography.body)}px;
   line-height: 1.32;
   letter-spacing: 0;
 }
-.element-bullets li {
+.title-accent-line {
+  position: absolute;
+  border-radius: 999px;
+  background: ${cssColor(theme.colors.accent)};
+}
+.element-bullets {
+  position: absolute;
+  overflow: hidden;
+}
+.bullet-item {
+  position: absolute;
+  overflow: hidden;
+}
+.bullet-marker {
+  position: absolute;
+  display: block;
+  border-radius: 999px;
+  background: ${cssColor(theme.colors.accent)};
+}
+.bullet-text {
+  position: absolute;
+  display: block;
+  min-width: 0;
+  overflow: hidden;
   font-size: ${ptToPx(theme.typography.bullets)}px;
-  line-height: 1.26;
+  line-height: 1.32;
+  color: ${cssColor(theme.colors.text)};
+  letter-spacing: 0;
 }
-ul {
-  padding-left: 25px;
+.bullet-list-fallback {
+  display: grid;
+  gap: 10px;
 }
-li + li {
-  margin-top: 4px;
+.bullet-list-fallback .bullet-item {
+  position: static;
+  display: grid;
+  grid-template-columns: 5px minmax(0, 1fr);
+  gap: 14px;
+}
+.bullet-list-fallback .bullet-marker,
+.bullet-list-fallback .bullet-text {
+  position: static;
 }
 .cards {
-  display: grid;
-  grid-template-columns: repeat(var(--card-columns, 1), minmax(0, 1fr));
-  grid-template-rows: repeat(var(--card-rows, 1), minmax(0, 1fr));
-  gap: var(--card-gap, 10px);
+  position: absolute;
   overflow: hidden;
 }
 .card {
-  min-width: 0;
-  min-height: 0;
+  position: absolute;
   overflow: hidden;
   border: 1px solid ${cssColor(theme.colors.border)};
   border-radius: 8px;
-  padding: var(--card-padding, 10px);
   background: ${cssColor(theme.colors.card)};
+}
+.card h3,
+.card p {
+  position: absolute;
+  margin: 0;
+  overflow: hidden;
 }
 .card p {
   font-size: ${ptToPx(theme.typography.cardBody)}px;
-  line-height: 1.24;
+  line-height: 1.26;
   color: ${cssColor(theme.colors.muted)};
+}
+.cards-fallback {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.cards-fallback .card {
+  position: static;
+  padding: 10px;
+}
+.cards-fallback .card h3,
+.cards-fallback .card p {
+  position: static;
 }
 .table-wrapper {
   overflow: hidden;
@@ -409,12 +552,25 @@ th {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  border: 1px dashed ${cssColor(theme.colors.border)};
+  border: 1px solid ${cssColor(theme.colors.border)};
   border-radius: 8px;
   background: ${cssColor(theme.colors.surface)};
   color: ${cssColor(theme.colors.muted)};
   text-align: center;
   overflow: hidden;
+}
+.image-frame {
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid ${cssColor(theme.colors.border)};
+  border-radius: 8px;
+  background: ${cssColor(theme.colors.surface)};
+}
+.image-frame img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
 }
 .image-placeholder div {
   max-width: 90%;

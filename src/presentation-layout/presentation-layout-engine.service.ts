@@ -6,6 +6,13 @@ import type {
 import type { Element } from "../presentation-generation/schemas/element-schema";
 import type { Presentation } from "../presentation-generation/schemas/presentation-schema";
 import type { Slide } from "../presentation-generation/schemas/slide-schema";
+import { PRESENTATION_DEFAULT_THEME } from "../presentation-theme";
+import {
+  estimateBulletsDesiredHeight,
+  estimateCardsDesiredHeight,
+  layoutBulletsElement,
+  layoutCardsElement,
+} from "./internal";
 import {
   getPresentationLayoutSlideSize,
   PRESENTATION_LAYOUT_ELEMENT_HEIGHTS,
@@ -17,6 +24,7 @@ import {
 import type {
   PresentationLayout,
   PresentationLayoutBox,
+  PresentationElementInternalLayout,
   PresentationLayoutIssue,
   PresentationLayoutNode,
   PresentationSlideLayout,
@@ -159,6 +167,7 @@ export class PresentationLayoutEngineService {
 
     const element = child as Element;
     const roundedBox = roundBox(box);
+    const internal = layoutElementInternal(element, roundedBox);
 
     checkBoxSize({
       box: roundedBox,
@@ -168,14 +177,50 @@ export class PresentationLayoutEngineService {
       issues,
     });
 
+    if (internal?.type === "bullets" && internal.overflow) {
+      issues.push({
+        severity: "warning",
+        code: "BULLETS_MAY_OVERFLOW",
+        message:
+          "Bullets content exceeds its layout box and was fit into the available space.",
+        slideId: slide.id,
+        nodeId: element.id,
+        path,
+      });
+    }
+
     return {
       nodeId: element.id,
       nodeType: "element",
       dslType: element.type,
       path,
       box: roundedBox,
+      internal,
     };
   }
+}
+
+function layoutElementInternal(
+  element: Element,
+  box: PresentationLayoutBox,
+): PresentationElementInternalLayout | undefined {
+  if (element.type === "bullets") {
+    return layoutBulletsElement({
+      element,
+      box,
+      theme: PRESENTATION_DEFAULT_THEME,
+    });
+  }
+
+  if (element.type === "cards") {
+    return layoutCardsElement({
+      element,
+      box,
+      theme: PRESENTATION_DEFAULT_THEME,
+    });
+  }
+
+  return undefined;
 }
 
 function layoutContainerChildren(input: {
@@ -225,7 +270,7 @@ function layoutStackChildren(input: {
   const gap = pixelsToLayoutUnits(container.gap ?? 0, slideWidth);
   const availableHeight = Math.max(0, box.h - gap * (children.length - 1));
   const preferredHeights = children.map((child: LayoutChild) =>
-    estimatePreferredHeight(child, slideWidth),
+    estimatePreferredHeight(child, slideWidth, box.w),
   );
   const growWeights = children.map(getGrowWeight);
   const heights = fitSizes(preferredHeights, growWeights, availableHeight);
@@ -378,18 +423,6 @@ export function resolveGridColumns(
   return PRESENTATION_LAYOUT_LIMITS.maxAutoGridColumns;
 }
 
-export function resolveCardsColumns(itemsCount: number): number {
-  if (itemsCount <= 2) {
-    return Math.max(1, itemsCount);
-  }
-
-  if (itemsCount <= 4) {
-    return 2;
-  }
-
-  return 3;
-}
-
 // The layout pass must decide stable boxes before either renderer knows exact
 // browser or PowerPoint text metrics. These estimates are shared renderer
 // heuristics, not new DSL semantics.
@@ -431,40 +464,82 @@ function fitSizes(
   return sizes.map((size, index) => size + extra * (growWeights[index] / growTotal));
 }
 
-function estimatePreferredHeight(child: LayoutChild, slideWidth: number): number {
+function estimatePreferredHeight(
+  child: LayoutChild,
+  slideWidth: number,
+  availableWidth: number,
+): number {
   if (isLayoutContainer(child)) {
     const children = child.children as LayoutChild[];
     const gap = pixelsToLayoutUnits(child.gap ?? 0, slideWidth);
     const padding = pixelsToLayoutUnits(child.padding ?? 0, slideWidth) * 2;
+    const innerWidth = Math.max(0, availableWidth - padding);
 
     if (children.length === 0) {
       return padding + PRESENTATION_LAYOUT_ELEMENT_HEIGHTS.textMin;
     }
 
-    if (child.type === "row" || child.type === "grid") {
+    if (child.type === "row") {
+      const availableInnerWidth = Math.max(
+        0,
+        innerWidth - gap * (children.length - 1),
+      );
+      const widths = resolveRowWidths(children, availableInnerWidth);
+
       return Math.max(
         2.1,
         Math.max(
-          ...children.map((nestedChild: LayoutChild) =>
-            estimatePreferredHeight(nestedChild, slideWidth),
+          ...children.map((nestedChild: LayoutChild, index: number) =>
+            estimatePreferredHeight(nestedChild, slideWidth, widths[index] ?? 0),
           ),
         ) + padding,
       );
     }
 
+    if (child.type === "grid") {
+      const columns = resolveGridColumns(child.columns, children.length);
+      const rows = Math.ceil(children.length / columns);
+      const cellWidth = Math.max(
+        0,
+        (innerWidth - gap * (columns - 1)) / columns,
+      );
+      const rowHeights = Array.from({ length: rows }, (_, rowIndex) => {
+        const rowChildren = children.slice(
+          rowIndex * columns,
+          rowIndex * columns + columns,
+        );
+
+        return Math.max(
+          ...rowChildren.map((nestedChild: LayoutChild) =>
+            estimatePreferredHeight(nestedChild, slideWidth, cellWidth),
+          ),
+        );
+      });
+
+      return Math.max(
+        2.1,
+        padding +
+          rowHeights.reduce((sum, height) => sum + height, 0) +
+          gap * Math.max(0, rows - 1),
+      );
+    }
+
     const childrenHeight = children.reduce(
       (sum: number, nestedChild: LayoutChild) =>
-        sum + estimatePreferredHeight(nestedChild, slideWidth),
+        sum + estimatePreferredHeight(nestedChild, slideWidth, innerWidth),
       0,
     );
 
     return padding + childrenHeight + gap * (children.length - 1);
   }
 
-  return estimateElementPreferredHeight(child as Element);
+  return estimateElementPreferredHeight(child as Element, availableWidth);
 }
 
-function estimateElementPreferredHeight(element: Element): number {
+function estimateElementPreferredHeight(
+  element: Element,
+  availableWidth: number,
+): number {
   switch (element.type) {
     case "title":
       return PRESENTATION_LAYOUT_ELEMENT_HEIGHTS.title;
@@ -478,17 +553,27 @@ function estimateElementPreferredHeight(element: Element): number {
         ) * PRESENTATION_LAYOUT_ELEMENT_HEIGHTS.textLineHeight,
       );
     case "bullets":
-      return (
+      return Math.max(
         PRESENTATION_LAYOUT_ELEMENT_HEIGHTS.bulletsBase +
-        element.items.length * PRESENTATION_LAYOUT_ELEMENT_HEIGHTS.bulletItemHeight
+          element.items.length * PRESENTATION_LAYOUT_ELEMENT_HEIGHTS.bulletItemHeight,
+        estimateBulletsDesiredHeight({
+          element,
+          boxWidth: availableWidth,
+          theme: PRESENTATION_DEFAULT_THEME,
+        }),
       );
     case "image":
       return PRESENTATION_LAYOUT_ELEMENT_HEIGHTS.image;
     case "cards":
-      return (
+      return Math.max(
         PRESENTATION_LAYOUT_ELEMENT_HEIGHTS.cardsBase +
-        Math.ceil(element.items.length / 2) *
-          PRESENTATION_LAYOUT_ELEMENT_HEIGHTS.cardItemHeight
+          Math.ceil(element.items.length / 2) *
+            PRESENTATION_LAYOUT_ELEMENT_HEIGHTS.cardItemHeight,
+        estimateCardsDesiredHeight({
+          element,
+          boxWidth: availableWidth,
+          theme: PRESENTATION_DEFAULT_THEME,
+        }),
       );
     case "table":
       return (
